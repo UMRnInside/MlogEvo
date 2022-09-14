@@ -13,13 +13,13 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 
 # Terms
 * The _mlog_ is an abbreviation for [_Mindustry Logic_](https://mindustrygame.github.io/wiki/logic/0-introduction/) .
-* The _mlogev_ (or MlogEv) is an abbreviation for _MlogEvo_ , where _evo_ means _evolution_ .
+* The _mlogev_ (or MlogEv) is an abbreviation for _MlogEvo_ , where _evo_ means _evolution_ or _evolved_ .
 * An _int32_ stands for 32-bit signed integer.
 * A _float64_ stands for IEEE-754 float64 (formerly double-precision floating point number).
 * (TBC)
 
 
-# Supported instructions / verdictsA
+# Supported instructions / verdicts
 
 ## Variable declaration
 * Format: `varl <variable>`
@@ -53,6 +53,17 @@ A _condition_ is a C-style comparison like `x < 100`
 
 ### Jump if condition IS Not met
 * Format: `ifnot <condition> goto <label>`
+
+### Set program counter
+* Format: `setpc <value>`
+
+Set _Program Counter_ (`@counter` in mlog) to `value`
+
+### Relative jump
+* Format: `rjump <value>`
+
+Like `setpc`, but it does `@counter = @counter + value` in mlog.
+
 
 ## Arithmetic
 
