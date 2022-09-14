@@ -98,6 +98,10 @@ For `divl`, if `divisor` is not int32, the behavior is defined by implementation
 
 Like `divl`, only it stores _remainder_ in dest.
 
+### Ceiling and flooring
+* Format: `ffloor src1 dest`
+* Format: `fceil src1 dest`
+
 ### Sign Inversion
 * Format: `minusl src dest`
 * Format: `fminus src dest`
