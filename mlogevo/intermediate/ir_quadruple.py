@@ -5,12 +5,12 @@ NOARG_INSTRUCTIONS = set([
 ])
 
 I1_INSTRUCTIONS = set([
-    "setl", "fset",
     "goto", "setpc", "rjump",
     "label", 
 ])
 
 I1O1_INSTRUCTIONS = set([
+    "setl", "fset",
     "ffloor", "fceil",
     "minusl", "fminus",
     "notl",

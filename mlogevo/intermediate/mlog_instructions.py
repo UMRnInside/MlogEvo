@@ -23,8 +23,8 @@ def mlog_set(src: str, dest: str) -> list[str]:
     return [inst, ]
 
 def mlog_label(label) -> list[str]:
-    """ label name w/ leading colon . """
-    real_label_name = label[1:]
+    """ label name w/o leading or trailing colon . """
+    real_label_name = label
     pseudo_inst = F"{real_label_name}:"
     return [pseudo_inst, ]
 
