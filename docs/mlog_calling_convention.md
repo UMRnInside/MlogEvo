@@ -29,13 +29,13 @@ In C:
 In mlog, one can use either `jump always` or `set counter` to invoke a function:
 ```
 add42:
-op add __tmp1_add42 a b
-op add c __tmp1_add42 42
+op add __tmp1_add42 __a_add42 __b_add42
+op add __c_add42 __tmp1_add42 42
 set _result_add42 __c_add42
 set @counter _retaddr_add42
 
-set _a_add42 41
-set _b_add42 b
+set __a_add42 41
+set __b_add42 b
 op add _retaddr_add42 @counter 1
 jump add42 always 0 0
 ```
