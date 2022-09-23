@@ -6,7 +6,8 @@ NOARG_INSTRUCTIONS = set([
 
 I1_INSTRUCTIONS = set([
     "goto", "setpc", "rjump",
-    "label", 
+    "label",
+    "__funcbegin", "__funcend", "__call", "__return",
 ])
 
 I1O1_INSTRUCTIONS = set([

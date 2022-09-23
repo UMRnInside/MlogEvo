@@ -21,13 +21,6 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 
 # Supported instructions / verdicts
 
-## Variable declaration
-* Format: `varl <variable>`
-* Format: `fvar <variable>`
-
-Declare a variable is a 32-bit signed int (`varl`) or float64 (`fvar`), does _not_ affect final outputs.
-If there are _conflict_ declarations, the _last_ one the backend processes should be followed.
-
 ## Data transfer
 
 ### Set or copy value
@@ -132,6 +125,28 @@ Logical shift `src` to the left by `count` bits, then store its result in `dest`
 * Format: `rshl src count dest`
 
 Logical shift `src` to the right by `count` bits, then store its result in `dest`.
+
+## Functions
+
+### Function block begin
+* Format: `__funcbegin <function_name>`
+
+Denote the beginning of a function, and assign a label.
+
+### Function block end
+* Format: `__funcend <function_name>`
+
+Denote the end of a function.
+
+### Function call
+* Format: `__call <function_name>`
+
+Call a function, does store return address, does NOT automatically push arguments. `function_name` must be defined in `__funcbegin` beforehand.
+
+### Function return
+* Format: `__return <function_name>`
+
+Return from a function, jump back to callee, does NOT automatically push results.
 
 
 ## ASM block
