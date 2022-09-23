@@ -4,8 +4,6 @@ MlogEvo (or mlogev) intermediate code is (mostly) quadruple, and can be stored i
 
 `instruction arg1 arg2 result`
 
-Immediate values should start with `$` (e.g. `setl $42 %a`
-
 The suffix `l` indicates "long", or 32-bit signed integers, while `f` prefix means IEEE-754 float64 (or double).
 
 Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Assembly)
