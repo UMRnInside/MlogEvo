@@ -48,16 +48,18 @@ class Quadruple:
     raw_instructions: list[str] = field(default_factory=list)
 
     def dump(self) -> str:
+        if self.instruction == "label":
+            return F":{self.src1}"
         if self.instruction in NOARG_INSTRUCTIONS:
             return F"{self.instruction}"
         if self.instruction in I1_INSTRUCTIONS:
-            return F"{self.instruction} {src1}"
+            return F"{self.instruction} {self.src1}"
         if self.instruction in I1O1_INSTRUCTIONS:
-            return F"{self.instruction} {src1} {dest}"
+            return F"{self.instruction} {self.src1} {self.dest}"
         if self.instruction in I2O1_INSTRUCTIONS:
-            return F"{self.instruction} {src1} {src2} {dest}"
+            return F"{self.instruction} {self.src1} {self.src2} {self.dest}"
         if self.instruction in ("if", "ifnot"):
-            return F"{self.instruction} {src1} {relop} {src2} goto {dest}"
+            return F"{self.instruction} {self.src1} {self.relop} {self.src2} goto {self.dest}"
         # if self.instruction == "asm"
         asm_begin = " ".join(["__asmbegin", str(self.input_vars), ] + self.input_vars)
         asm_end = " ".join(["__asmend", str(self.output_vars), ] + self.output_vars)
