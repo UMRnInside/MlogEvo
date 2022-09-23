@@ -12,6 +12,7 @@ from .mlog_instructions import \
     mlog_floor, mlog_ceil, mlog_minus, \
     mlog_and, mlog_or, mlog_xor, \
     mlog_shl, mlog_shr, mlog_flip, \
+    mlog_call, mlog_return, \
     mlog_noop
 
 class IRtoMlogCompiler:
@@ -47,6 +48,10 @@ class IRtoMlogCompiler:
         self.registry["lshl"] = wrapped_shl
         self.registry["rshl"] = wrapped_shr
         self.registry["noop"] = mlog_noop
+        self.registry["__funcbegin"] = mlog_label
+        self.registry["__funcend"] = lambda src1 : []
+        self.registry["__call"] = mlog_call
+        self.registry["__return"] = mlog_return
 
     def strip_labels(self, mlog_list) -> list[str]:
         labels = {}

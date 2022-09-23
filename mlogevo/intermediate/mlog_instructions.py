@@ -134,3 +134,13 @@ def mlog_flip(src1, dest, strict_32bit) -> list[str]:
 
 def mlog_noop() -> list[str]:
     return ["op xor __mlogev_nop __mlogev_nop 0", ]
+
+def mlog_call(function_name) -> list[str]:
+    insts = []
+    insts.append( F"op add _retaddr_{function_name} @counter 1" )
+    insts.append( F"jump {function_name} always 1 1" )
+    return insts
+
+def mlog_return(function_name) -> list[str]:
+    inst = F"set @counter _retaddr_{function_name}"
+    return [inst, ]
