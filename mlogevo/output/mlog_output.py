@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from .ir_quadruple import NOARG_INSTRUCTIONS, \
+from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
         I2O1_INSTRUCTIONS, Quadruple
 
@@ -105,7 +105,7 @@ class IRtoMlogCompiler:
 
 if __name__ == "__main__":
     import sys
-    from .quadruple_from_text import TextQuadrupleParser
+    from ..intermediate.quadruple_from_text import TextQuadrupleParser
     parser = TextQuadrupleParser()
     result = parser.parse(sys.stdin.readlines())
     compiler = IRtoMlogCompiler(strict_32bit=False, keep_labels=False)
