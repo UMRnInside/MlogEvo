@@ -5,7 +5,7 @@ Special thanks to [SuperStormer/c2logic](https://github.com/SuperStormer/c2logic
 ## Variable Name Decoration
 MlogEv IR itself will NOT decorate variable names, the frontend IS responsible for this.
 
-The decoration rule for parameters and variables is `__<variableName>_<functionName>`.
+The decoration rule for parameters and variables is `_<variableName>@<functionName>`.
 Given such funcion (in C):
 ```C
 int add42(int a, int b) {
@@ -14,8 +14,8 @@ int add42(int a, int b) {
 }
 ```
 
-The parameter `a` in function `add42` will be decorated as `__a_add42`, so do parameter `b` and variable `c`.
-The return address of function `add42` will be in variable `_retaddr_add42`, and result in `_result_add42`
+The parameter `a` in function `add42` will be decorated as `_a@add42`, so do parameter `b` and variable `c`.
+The return address of function `add42` will be in variable `retaddr@add42`, and result in `result@add42`
 
 ## Defining and calling a function
 As there are no such thing like address space in vanilla mlog, a caller may fill parameters in any order. For the example given in Chapter _Variable Name Decoration_:
@@ -29,28 +29,28 @@ In C:
 In mlog, one can use either `jump always` or `set counter` to invoke a function:
 ```
 add42:
-op add __tmp1_add42 __a_add42 __b_add42
-op add __c_add42 __tmp1_add42 42
-set _result_add42 __c_add42
-set @counter _retaddr_add42
+op add _tmp1@add42 _a@add42 _b@add42
+op add _c@add42 _tmp1@add42 42
+set _result@add42 _c@add42
+set @counter retaddr@add42
 
-set __a_add42 41
-set __b_add42 b
-op add _retaddr_add42 @counter 1
+set _a@add42 41
+set _b@add42 b
+op add retaddr@add42 @counter 1
 jump add42 always 0 0
 ```
 
 Or in MlogEv IR:
 ```
 __funcbegin add42
-addl __a_add42 __b_add42 __tmp1_add42
-addl __tmp1_add42 42 __c_add42
-setl __c_add42 _result_add42
+addl _a@add42 _b@add42 _tmp1@add42
+addl _tmp1@add42 42 _c@add42
+setl _c@add42 result@add42
 __return add42
 __funcend add42
 
-setl 41 _a_add42
-setl b _b_add42
+setl 41 _a@add42
+setl b _b@add42
 __call add42
 ```
 The IR instruction `__call` will store return address and invoke function.
@@ -59,7 +59,7 @@ It can be proven that recursive function will NOT work under such calling conven
 
 ## Returning from a function
 
-If a function has a return value, it must write that value in variable `_result_<functionName>`
+If a function has a return value, it must write that value in variable `result@<functionName>`
 For the example given in Chapter _Variable Name Decoration_:
 
 In C:
@@ -69,12 +69,12 @@ In C:
 
 In mlog:
 ```
-set _result_add42 __c_add42
-set @counter _retaddr_add42
+set _result@add42 _c@add42
+set @counter _retaddr@add42
 ```
 
 Or in MlogEv IR:
 ```
-setl _result_add42 __c_add42
+setl _result@add42 _c@add42
 __return add42
 ```
