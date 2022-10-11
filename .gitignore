@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# pycparserext (or pycparser)
+lextab.py
+yacctab.py
