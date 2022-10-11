@@ -41,7 +41,7 @@ class IRtoMlogCompiler:
         self.registry["reml"] = mlog_mod
         self.registry["ffloor"] = mlog_floor
         self.registry["fceil"] = mlog_ceil
-        self.registry["minusl"] = self.registry["fminus"] = mlog_ceil
+        self.registry["minusl"] = self.registry["fminus"] = mlog_minus
         self.registry["andl"] = wrapped_and
         self.registry["orl"] = wrapped_or
         self.registry["xorl"] = wrapped_xor
