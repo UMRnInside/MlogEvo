@@ -71,10 +71,6 @@ def mlog_idiv(src1, src2, dest) -> list[str]:
     inst = F"op idiv {dest} {src1} {src2}"
     return [inst, ]
 
-def mlog_idiv(src1, src2, dest) -> list[str]:
-    inst = F"op idiv {dest} {src1} {src2}"
-    return [inst, ]
-
 def mlog_mod(src1, src2, dest) -> list[str]:
     Ginst = F"op mod {dest} {src1} {src2}"
     return [inst, ]

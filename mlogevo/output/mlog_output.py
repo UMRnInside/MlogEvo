@@ -36,7 +36,8 @@ class IRtoMlogCompiler:
         self.registry["addl"] = self.registry["fadd"] = mlog_add
         self.registry["subl"] = self.registry["fsub"] = mlog_sub
         self.registry["mull"] = self.registry["fmul"] = mlog_mul
-        self.registry["divl"] = self.registry["fdiv"] = mlog_div
+        self.registry["fdiv"] = mlog_div
+        self.registry["divl"] = mlog_idiv
         self.registry["reml"] = mlog_mod
         self.registry["ffloor"] = mlog_floor
         self.registry["fceil"] = mlog_ceil
