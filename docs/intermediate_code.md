@@ -99,6 +99,20 @@ Like `divl`, only it stores _remainder_ in dest.
 
 Namely `dest = -src` in C.
 
+### Comparison
+* Format: `ltl <a> <b> <dest>`
+* Format: `flt <a> <b> <dest>`
+
+Write `1` (integer) to `<dest>` if `a < b` holds, otherwise write `0`
+
+All comparison instructions:
+* `ltl`, `flt`: `a < b`
+* `gtl`, `fgt`: `a > b`
+* `lteql`, `flteq`: `a <= b`
+* `gteql`, `fgteq`: `a >= b`
+* `eql`, `feq`: `a == b`
+* `nel`, `fne`: `a != b`
+
 
 ## Logical and Rearrangement
 

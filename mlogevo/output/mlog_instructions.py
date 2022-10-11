@@ -128,6 +128,24 @@ def mlog_flip(src1, dest, strict_32bit) -> list[str]:
         insts.append( F"op xor {dest} {src1} 0xFFFFFFFF" )
     return insts
 
+def mlog_less(src1, src2, dest) -> list[str]:
+    return [F"op lessThan {dest} {src1} {src2}", ]
+
+def mlog_greater(src1, src2, dest) -> list[str]:
+    return [F"op greaterThan {dest} {src1} {src2}", ]
+
+def mlog_less_equal(src1, src2, dest) -> list[str]:
+    return [F"op lessThanEq {dest} {src1} {src2}", ]
+
+def mlog_greater_equal(src1, src2, dest) -> list[str]:
+    return [F"op greaterThanEq {dest} {src1} {src2}", ]
+
+def mlog_equal(src1, src2, dest) -> list[str]:
+    return [F"op equal {dest} {src1} {src2}", ]
+
+def mlog_not_equal(src1, src2, dest) -> list[str]:
+    return [F"op notEqual {dest} {src1} {src2}", ]
+
 def mlog_noop() -> list[str]:
     return ["op xor __mlogev_nop __mlogev_nop 0", ]
 

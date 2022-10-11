@@ -92,18 +92,13 @@ class Compiler(ParentNodeVisitor):
         # TODO: PtrDecl
         # TODO: Struct?
         # Assume src_type and dst_type are TypeDecl
-        print("static_cast", src_typedecl, dst_typedecl)
-        src_typename = ""
-        if isinstance(src_typedecl, str):
-            stc_typename = src_typedecl
-        else:
-            src_typename = src_typedecl.type.names[0]
-        dst_typename = dst_typedecl.type.names[0]
+        src_typename = extract_typename(src_typedecl)
+        dst_typename = extract_typename(dst_typedecl)
         if dst_typename == "int" and src_typename == "double":
             raw_tmp_var = self.create_temp_variable(dst_typedecl)
-            tmp_var = self.decorate_variable(tmp_var)
+            tmp_var = self.decorate_variable(raw_tmp_var)
             self.push(Quadruple("ffloor", src_var, "", tmp_var))
-            return raw_tmp_var
+            return tmp_var
         return src_var
 
     # Start visitors
@@ -121,12 +116,14 @@ class Compiler(ParentNodeVisitor):
                 params = [param_decl.name for param_decl in func_decl.args.params]
             self.current_function = Function(func_name, params, {})
 
+        self.function_locals = self.current_function.local_vars
         self.push(Quadruple("__funcbegin", func_name, ""))
         self.visit(node.body)
         self.push(Quadruple("__funcend", func_name, ""))
 
         self.functions[func_name] = self.current_function
         self.current_function = None
+        self.function_locals = {}
 
     def visit_Decl(self, node):
         if isinstance(node.type, TypeDecl):
@@ -145,7 +142,6 @@ class Compiler(ParentNodeVisitor):
             return
         if isinstance(node.type, FuncDecl) or isinstance(node.type, FuncDeclExt):
             func_decl = node.type
-            node.type.show()
             if func_decl.args is None or isinstance(func_decl.args.params[0], Typename):
                 params = []
             else:
@@ -166,16 +162,37 @@ class Compiler(ParentNodeVisitor):
         raise NotImplementedError(node)
 
     def visit_Assignment(self, node):
-        self.visit(node.rvalue)
+        lvalue_decorated = self.decorate_variable(node.lvalue.name)
+        lvalue_typedecl = self.get_variable(node.lvalue.name)
+        rvalue_typedecl, rvalue = self.visit(node.rvalue)
+        rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
+        lvalue_type = extract_typename(lvalue_typedecl)
         print("Assign", node.lvalue, node.op, node.rvalue)
+        if node.op == "=":
+            if lvalue_type == "int":
+                self.push(Quadruple("setl", rvalue_after_cast, "", lvalue_decorated))
+            elif lvalue_type == "double":
+                self.push(Quadruple("fset", rvalue_after_cast, "", lvalue_decorated))
+            return
 
     # Return (type, value)
     def visit_Constant(self, node):
         return (node.type, node.value)
 
+    def visit_ID(self, node):
+        decorated_name = self.decorate_variable(node.name)
+        var_typedecl = self.get_variable(node.name)
+        return (var_typedecl, decorated_name)
+
 
 def is_identifier(name) -> bool:
     return len(name) > 0 and ( name[0].isalpha() or name[0] in "_" )
+
+def extract_typename(typedecl) -> str:
+    if isinstance(typedecl, str):
+        return typedecl
+    return typedecl.type.names[0]
+
 
 def get_include_path():
 	if os.name == "posix":

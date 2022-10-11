@@ -23,7 +23,13 @@ I2O1_INSTRUCTIONS = set([
     "divl", "fdiv",
     "reml",
     "andl", "orl", "xorl",
-    "lshl", "rshl"
+    "lshl", "rshl",
+    "ltl", "flt",
+    "gtl", "fgt",
+    "lteql", "flteq",
+    "gteql", "fgteq",
+    "eql", "feq",
+    "nel", "fne",
 ])
 
 def test_parameter_type(param: str) -> str:

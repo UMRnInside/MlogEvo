@@ -12,6 +12,9 @@ from .mlog_instructions import \
     mlog_floor, mlog_ceil, mlog_minus, \
     mlog_and, mlog_or, mlog_xor, \
     mlog_shl, mlog_shr, mlog_flip, \
+    mlog_less, mlog_greater, \
+    mlog_less_equal, mlog_greater_equal, \
+    mlog_equal, mlog_not_equal, \
     mlog_call, mlog_return, \
     mlog_noop
 
@@ -49,6 +52,12 @@ class IRtoMlogCompiler:
         self.registry["lshl"] = wrapped_shl
         self.registry["rshl"] = wrapped_shr
         self.registry["noop"] = mlog_noop
+        self.registry["ltl"] = self.registry["flt"] = mlog_less
+        self.registry["lteql"] = self.registry["flteq"] = mlog_less_equal
+        self.registry["gtl"] = self.registry["fgt"] = mlog_greater
+        self.registry["gteql"] = self.registry["fgteq"] = mlog_greater_equal
+        self.registry["eql"] = self.registry["feq"] = mlog_equal
+        self.registry["nel"] = self.registry["fne"] = mlog_not_equal
         self.registry["__funcbegin"] = mlog_label
         self.registry["__funcend"] = lambda src1 : []
         self.registry["__call"] = mlog_call
