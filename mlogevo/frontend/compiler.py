@@ -20,6 +20,7 @@ from .type_util import choose_binaryop_instruction, \
 
 # function_locals[variable_name] = variable_type (as TypeDecl/PtrDecl/Struct)
 # variable_name in function_locals are UNDECORATED
+# params: [(parameter_realname_1, typedecl_1), ... ]
 @dataclass
 class Function:
     name: str
@@ -57,16 +58,20 @@ class Compiler(NodeVisitor):
                 use_cpp=use_cpp,
                 cpp_args=["-I", get_include_path()],
                 parser=GnuCParser())
-        ast.show()
+        #ast.show()
         self.visit(ast)
-        print(self.functions)
         return self.instructions
 
     def push(self, instruction) -> None:
         self.instructions.append(instruction)
 
+    # For global variables:
+    # it will NOT decorate them
     def decorate_variable(self, variable_name):
         if self.current_function is None:
+            return variable_name
+        if self.function_locals.get(variable_name, None) is None:
+            # Assume global
             return variable_name
         return F"_{variable_name}@{self.current_function.name}"
 
@@ -118,8 +123,9 @@ class Compiler(NodeVisitor):
             if func_decl.args is None or isinstance(func_decl.args.params[0], Typename):
                 params = []
             else:
-                params = [param_decl.name for param_decl in func_decl.args.params]
-            self.current_function = Function(func_name, params, {})
+                params = [(param_decl.name, param_decl.type)
+                        for param_decl in func_decl.args.params]
+            self.current_function = Function(func_name, params, dict(params))
 
         self.function_locals = self.current_function.local_vars
         self.push(Quadruple("__funcbegin", func_name, ""))
@@ -150,8 +156,9 @@ class Compiler(NodeVisitor):
             if func_decl.args is None or isinstance(func_decl.args.params[0], Typename):
                 params = []
             else:
-                params = [param_decl.name for param_decl in func_decl.args.params]
-            self.functions[node.name] = Function(node.name, params, {})
+                params = [(param_decl.name, param_decl.type)
+                        for param_decl in func_decl.args.params]
+            self.functions[node.name] = Function(node.name, params, dict(params))
             return
         if isinstance(node.type, Struct):
             if node.type.name != "MlogObject":
@@ -172,7 +179,7 @@ class Compiler(NodeVisitor):
         rvalue_typedecl, rvalue = self.visit(node.rvalue)
         rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
         lvalue_type = extract_typename(lvalue_typedecl)
-        print("Assign", node.lvalue, node.op, node.rvalue)
+        # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
             if lvalue_type == "int":
                 self.push(Quadruple("setl", rvalue_after_cast, "", lvalue_decorated))
@@ -182,6 +189,9 @@ class Compiler(NodeVisitor):
 
     # Return (type, value)
     def visit_Constant(self, node):
+        if extract_typename(node.type) in ("double", ):
+            value = str(float(node.value))
+            return (node.type, value)
         return (node.type, node.value)
 
     def visit_ID(self, node):
@@ -198,6 +208,7 @@ class Compiler(NodeVisitor):
         return (var_typedecl, name_or_value)
 
     def visit_BinaryOp(self, node):
+        # TODO: Short-circuit evaluation
         left_typedecl, left_var = self.visit(node.left)
         right_typedecl, right_var = self.visit(node.right)
         # TODO: implicit conversion?
@@ -209,6 +220,49 @@ class Compiler(NodeVisitor):
         temp_var = self.decorate_variable(raw_temp_var)
         self.push(Quadruple(inst, left_var, right_var, temp_var))
         return (result_typedecl, temp_var)
+
+    def visit_UnaryOp(self, node):
+        var_typedecl, var_realname = self.visit(node.expr)
+        # print("UnaryOp", node)
+        if node.op in ("-", "~"):
+            temp_var = self.create_temp_variable(var_typedecl)
+            result_var = self.decorate_variable(temp_var)
+            result_typedecl, unary_inst = choose_unaryop_instruction(
+                    node.op, var_typedecl
+            )
+            self.push(Quadruple(unary_inst, var_realname, "", result_var))
+            return (result_typedecl, result_var)
+        if node.op in ("p++", "p--", "++", "--"):
+            # var_realname = self.decorate_variable(node.expr.name)
+            # var_typedecl = self.get_variable(node.expr.name)
+            var_typename = extract_typename(var_typedecl)
+
+            result_var = var_realname
+            if node.op in ("p++", "p--"):
+                # TODO: hardcoded "setl" and "fset"
+                copy_inst = "setl" if var_typename in ("int", ) else "fset"
+                # Postincrement: copy value
+                temp_var = self.create_temp_variable(var_typedecl)
+                result_var = self.decorate_variable(temp_var)
+                self.push(Quadruple(copy_inst, var_realname, "", result_var))
+            # Avoid hardcoded IR
+            # result TypeDecl is always var_typedecl
+            binary_inst, _ = choose_binaryop_instruction(
+                    node.op[1], var_typedecl, var_typedecl
+            )
+            self.push(Quadruple(binary_inst, var_realname, "1", var_realname))
+            return (var_typedecl, result_var)
+        if node.op == "!":
+            temp_var = self.create_temp_variable(var_typedecl)
+            result_var = self.decorate_variable(temp_var)
+            inst, result_typedecl = choose_binaryop_instruction(
+                    "==", var_typedecl, var_typedecl
+            )
+            self.push(Quadruple(inst, var_realname, "0", result_var))
+            return (result_typedecl, result_var)
+
+        # TODO: & (address), * (dereference) in mlogmem arch?
+        return (var_typedecl, var_realname)
 
 
 def is_identifier(name) -> bool:
