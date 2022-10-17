@@ -24,8 +24,10 @@ from .type_util import choose_binaryop_instruction, \
 @dataclass
 class Function:
     name: str
+    result_type: TypeDecl
     params: list
     local_vars: dict
+    instructions: list
 
 # Stateful compiler & ast node visitor
 class Compiler(NodeVisitor):
@@ -59,10 +61,16 @@ class Compiler(NodeVisitor):
                 parser=GnuCParser())
         #ast.show()
         self.visit(ast)
+        self.instructions.append(Quadruple("goto", "main"))
+        for func in self.functions.values():
+            self.instructions.extend(func.instructions)
         return self.instructions
 
     def push(self, instruction) -> None:
-        self.instructions.append(instruction)
+        if self.current_function is None:
+            self.instructions.append(instruction)
+            return
+        self.current_function.instructions.append(instruction)
 
     # For global variables:
     # it will NOT decorate them
@@ -137,14 +145,15 @@ class Compiler(NodeVisitor):
             else:
                 params = [(param_decl.name, param_decl.type)
                         for param_decl in func_decl.args.params]
-            self.current_function = Function(func_name, params, dict(params))
+            self.current_function = Function(func_name, func_decl.type, params, dict(params), [])
 
         #self.function_locals = self.current_function.local_vars
+        self.functions[func_name] = self.current_function
+
         self.push(Quadruple("__funcbegin", func_name, ""))
         self.visit(node.body)
         self.push(Quadruple("__funcend", func_name, ""))
 
-        self.functions[func_name] = self.current_function
         self.current_function = None
         #self.function_locals = {}
 
@@ -169,7 +178,7 @@ class Compiler(NodeVisitor):
             else:
                 params = [(param_decl.name, param_decl.type)
                         for param_decl in func_decl.args.params]
-            self.functions[node.name] = Function(node.name, params, dict(params))
+            self.functions[node.name] = Function(node.name, func_decl.type, params, dict(params), [])
             return
         if isinstance(node.type, Struct):
             if node.type.name != "MlogObject":
@@ -370,6 +379,43 @@ class Compiler(NodeVisitor):
         current_loop = self.loop_stack[-1]
         cont_label = f"__MLOGEV_LOOP_{current_loop}_CONT_"
         self.push(Quadruple("goto", cont_label))
+    
+    def visit_Return(self, node):
+        function_name = self.current_function.name
+        if node.expr is not None:
+            r_typedecl, r_varname = self.visit(node.expr)
+            result_typedecl = self.current_function.result_type
+            result = r_varname
+            if extract_typename(r_typedecl) \
+                    != extract_typename(result_typedecl):
+                result = self.static_cast(r_varname, r_typedecl, result_typedecl)
+
+            inst = "setl" if extract_typename(result_typedecl) == "int" else "fset"
+            dest = f"result@{function_name}"
+            self.push(Quadruple(inst, result, "", dest))
+        self.push(Quadruple("__return", function_name))
+
+
+    def visit_FuncCall(self, node):
+        function_name = node.name.name
+        args = [] if node.args is None else node.args
+        func = self.functions.get(function_name, None)
+        if func is None:
+            raise ValueError(f"{function_name} is not a function (or not declared)")
+        #if len(func.params) != len(args):
+        #    raise ValueError(f"{function_name} expect {len(func.params)} params, got {len(args)}")
+        for param_decl, arg in zip(func.params, args):
+            param_realname = f"_{param_decl[0]}@{function_name}"
+            arg_typedecl, arg_varname = self.visit(arg)
+            real_argument = arg_varname
+            param_type = extract_typename(param_decl[1])
+            if extract_typename(arg_typedecl) != param_type:
+                real_argument = self.static_cast(arg_varname, arg_typedecl, param_decl[1])
+            inst = "setl" if param_type == "int" else "fset"
+            self.push(Quadruple(inst, real_argument, "", param_realname))
+        self.push(Quadruple("__call", function_name))
+        # Assume a function returns something
+        return (func.result_type, f"result@{function_name}")
 
 
 def is_identifier(name) -> bool:

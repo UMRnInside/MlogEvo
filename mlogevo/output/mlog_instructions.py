@@ -151,10 +151,10 @@ def mlog_noop() -> list[str]:
 
 def mlog_call(function_name) -> list[str]:
     insts = []
-    insts.append( F"op add _retaddr_{function_name} @counter 1" )
+    insts.append( F"op add retaddr@{function_name} @counter 1" )
     insts.append( F"jump {function_name} always 1 1" )
     return insts
 
 def mlog_return(function_name) -> list[str]:
-    inst = F"set @counter _retaddr_{function_name}"
+    inst = F"set @counter retaddr@{function_name}"
     return [inst, ]
