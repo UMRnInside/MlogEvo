@@ -27,12 +27,6 @@ class Function:
     params: list
     local_vars: dict
 
-@dataclass
-class Loop:
-    """start, end: string, label name"""
-    start: str
-    end: str
-
 # Stateful compiler & ast node visitor
 class Compiler(NodeVisitor):
     def __init__(self):
@@ -46,6 +40,7 @@ class Compiler(NodeVisitor):
         self.instructions: list = None
         self.if_structure_count: int = 0
         self.loop_structure_count: int = 0
+        self.loop_stack: list = None
         super().__init__()
 
     def compile(self, filename: str, use_cpp=True):
@@ -55,6 +50,7 @@ class Compiler(NodeVisitor):
         self.vtmp_count = 0
         self.if_structure_count = 0
         self.loop_structure_count = 0
+        self.loop_stack = []
         self.instructions = []
 
         ast = parse_file(filename, 
@@ -116,6 +112,16 @@ class Compiler(NodeVisitor):
             self.push(Quadruple("ffloor", src_var, "", tmp_var))
             return tmp_var
         return src_var
+
+    def create_loop(self):
+        current_loop = self.loop_structure_count
+        self.loop_structure_count += 1
+        self.loop_stack.append(current_loop)
+        label_prefix = f"__MLOGEV_LOOP_{current_loop}"
+        start_label = f"{label_prefix}_START_"
+        cont_label = f"{label_prefix}_CONT_"
+        end_label = f"{label_prefix}_END_"
+        return (current_loop, start_label, cont_label, end_label)
 
     # Start visitors
     def visit_FuncDef(self, node):
@@ -182,15 +188,33 @@ class Compiler(NodeVisitor):
         # lvalue_decorated = self.decorate_variable(node.lvalue.name)
         lvalue_typedecl, lvalue_decorated = self.get_variable(node.lvalue.name)
         rvalue_typedecl, rvalue = self.visit(node.rvalue)
-        rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
-        lvalue_type = extract_typename(lvalue_typedecl)
         # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
+            rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
+            lvalue_type = extract_typename(lvalue_typedecl)
             if lvalue_type == "int":
                 self.push(Quadruple("setl", rvalue_after_cast, "", lvalue_decorated))
             elif lvalue_type == "double":
                 self.push(Quadruple("fset", rvalue_after_cast, "", lvalue_decorated))
-            return
+            return (lvalue_typedecl, lvalue_decorated)
+
+        binary_op = node.op[:-1]
+        result_typedecl, inst = choose_binaryop_instruction(
+                binary_op, lvalue_typedecl, rvalue_typedecl
+        )
+        if extract_typename(result_typedecl) == extract_typename(lvalue_typedecl):
+            self.push(Quadruple(inst, lvalue_decorated, rvalue, lvalue_decorated))
+            return (lvalue_typedecl, lvalue_decorated)
+
+        temp_var = self.create_temp_variable(result_typedecl, True)
+        self.push(Quadruple(inst, lvalue_decorated, rvalue, temp_var))
+        temp_after_cast = self.static_cast(temp_var, result_typedecl, lvalue_typedecl)
+        if lvalue_type == "int":
+            self.push(Quadruple("setl", temp_after_cast, "", lvalue_decorated))
+        elif lvalue_type == "double":
+            self.push(Quadruple("fset", temp_after_cast, "", lvalue_decorated))
+        return (lvalue_typedecl, lvalue_decorated)
+
 
     # Return (type, value)
     def visit_Constant(self, node):
@@ -249,7 +273,7 @@ class Compiler(NodeVisitor):
                 self.push(Quadruple(copy_inst, var_realname, "", result_var))
             # Avoid hardcoded IR
             # result TypeDecl is always var_typedecl
-            binary_inst, _ = choose_binaryop_instruction(
+            _, binary_inst = choose_binaryop_instruction(
                     node.op[1], var_typedecl, var_typedecl
             )
             self.push(Quadruple(binary_inst, var_realname, "1", var_realname))
@@ -266,7 +290,7 @@ class Compiler(NodeVisitor):
         return (var_typedecl, var_realname)
 
     def visit_If(self, node):
-        label_prefix = f"_MLOGEV_IFELSE_{self.if_structure_count}"
+        label_prefix = f"__MLOGEV_IFELSE_{self.if_structure_count}"
         iffalse_label = f"{label_prefix}_IFFALSE_"
         end_label = f"{label_prefix}_END_"
         self.if_structure_count += 1
@@ -283,8 +307,52 @@ class Compiler(NodeVisitor):
             self.push(Quadruple("goto", end_label))
             self.push(Quadruple("label", iffalse_label))
             self.visit(node.iffalse)
-
         self.push(Quadruple("label", end_label))
+
+    def visit_For(self, node):
+        current_loop, start_label, cont_label, end_label = \
+                self.create_loop()
+        afterinit_label = f"__MLOGEV_LOOP_{current_loop}_AFTERINIT_"
+
+        self.visit(node.init)
+        self.push(Quadruple("goto", afterinit_label))
+        self.push(Quadruple("label", start_label))
+        self.visit(node.stmt)
+        self.push(Quadruple("label", cont_label))
+        self.visit(node.next)
+        self.push(Quadruple("label", afterinit_label))
+        _, cond_var = self.visit(node.cond)
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("label", end_label))
+
+        self.loop_stack.pop()
+
+    def visit_DoWhile(self, node):
+        current_loop, start_label, cont_label, end_label = \
+                self.create_loop()
+       
+        self.push(Quadruple("label", start_label))
+        self.visit(node.stmt)
+        self.push(Quadruple("label", cont_label))
+        _, cond_var = self.visit(node.cond)
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("label", end_label))
+
+        self.loop_stack.pop()
+
+    def visit_While(self, node):
+        current_loop, start_label, cont_label, end_label = \
+                self.create_loop()
+
+        self.push(Quadruple("goto", cont_label))
+        self.push(Quadruple("label", start_label))
+        self.visit(node.stmt)
+        self.push(Quadruple("label", cont_label))
+        _, cond_var = self.visit(node.cond)
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("label", end_label))
+
+        self.loop_stack.pop()
 
     def visit_Label(self, node):
         self.push(Quadruple("label", node.name))
@@ -292,6 +360,17 @@ class Compiler(NodeVisitor):
 
     def visit_Goto(self, node):
         self.push(Quadruple("goto", node.name))
+
+    def visit_Break(self, node):
+        current_loop = self.loop_stack[-1]
+        end_label = f"__MLOGEV_LOOP_{current_loop}_CONT_"
+        self.push(Quadruple("goto", end_label))
+
+    def visit_Continue(self, node):
+        current_loop = self.loop_stack[-1]
+        cont_label = f"__MLOGEV_LOOP_{current_loop}_CONT_"
+        self.push(Quadruple("goto", cont_label))
+
 
 def is_identifier(name) -> bool:
     return len(name) > 0 and ( name[0].isalpha() or name[0] in "_" )
