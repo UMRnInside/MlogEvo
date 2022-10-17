@@ -31,7 +31,7 @@ In mlog, one can use either `jump always` or `set counter` to invoke a function:
 add42:
 op add _tmp1@add42 _a@add42 _b@add42
 op add _c@add42 _tmp1@add42 42
-set _result@add42 _c@add42
+set result@add42 _c@add42
 set @counter retaddr@add42
 
 set _a@add42 41
@@ -69,12 +69,12 @@ In C:
 
 In mlog:
 ```
-set _result@add42 _c@add42
+set result@add42 _c@add42
 set @counter _retaddr@add42
 ```
 
 Or in MlogEv IR:
 ```
-setl _result@add42 _c@add42
+setl result@add42 _c@add42
 __return add42
 ```
