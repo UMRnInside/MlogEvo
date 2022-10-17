@@ -42,15 +42,19 @@ class Compiler(NodeVisitor):
         self.loops: list = None
         self.loop_end: int = None
         self.special_vars: dict = None
-        self.vtmp_counter: int = None
+        self.vtmp_count: int = None
         self.instructions: list = None
+        self.if_structure_count: int = 0
+        self.loop_structure_count: int = 0
         super().__init__()
 
     def compile(self, filename: str, use_cpp=True):
         self.functions = {}
         self.current_function = None
         self.globals = {}
-        self.vtmp_counter = 0
+        self.vtmp_count = 0
+        self.if_structure_count = 0
+        self.loop_structure_count = 0
         self.instructions = []
 
         ast = parse_file(filename, 
@@ -76,8 +80,8 @@ class Compiler(NodeVisitor):
 
     # temp variable should be decorated
     def create_temp_variable(self, var_type, autodecorate=True) -> str:
-        self.vtmp_counter += 1
-        temp_var_name = F"__vtmp_{self.vtmp_counter}"
+        self.vtmp_count += 1
+        temp_var_name = F"__vtmp_{self.vtmp_count}"
         self.declare_variable(temp_var_name, var_type)
         if autodecorate:
             return self.decorate_variable(temp_var_name)
@@ -261,6 +265,33 @@ class Compiler(NodeVisitor):
         # TODO: & (address), * (dereference) in mlogmem arch?
         return (var_typedecl, var_realname)
 
+    def visit_If(self, node):
+        label_prefix = f"_MLOGEV_IFELSE_{self.if_structure_count}"
+        iffalse_label = f"{label_prefix}_IFFALSE_"
+        end_label = f"{label_prefix}_END_"
+        self.if_structure_count += 1
+
+        # Omit typedecl: it is always int / bool
+        _, cond_var = self.visit(node.cond)
+        dest_label = end_label if node.iffalse is None else iffalse_label
+        # mlog has a builtin constant "false" == 0
+        # optimizer will optimize this `cond_var != false` pattern
+        self.push(Quadruple("ifnot", cond_var, "false", dest_label, relop="!="))
+        self.visit(node.iftrue)
+
+        if node.iffalse is not None:
+            self.push(Quadruple("goto", end_label))
+            self.push(Quadruple("label", iffalse_label))
+            self.visit(node.iffalse)
+
+        self.push(Quadruple("label", end_label))
+
+    def visit_Label(self, node):
+        self.push(Quadruple("label", node.name))
+        self.visit(node.stmt)
+
+    def visit_Goto(self, node):
+        self.push(Quadruple("goto", node.name))
 
 def is_identifier(name) -> bool:
     return len(name) > 0 and ( name[0].isalpha() or name[0] in "_" )
