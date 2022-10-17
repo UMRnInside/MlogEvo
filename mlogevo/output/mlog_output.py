@@ -60,7 +60,7 @@ class IRtoMlogCompiler:
         self.registry["eql"] = self.registry["feq"] = mlog_equal
         self.registry["nel"] = self.registry["fne"] = mlog_not_equal
         self.registry["__funcbegin"] = mlog_label
-        self.registry["__funcend"] = lambda src1 : []
+        self.registry["__funcend"] = mlog_return
         self.registry["__call"] = mlog_call
         self.registry["__return"] = mlog_return
 
