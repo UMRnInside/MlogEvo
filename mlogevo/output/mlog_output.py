@@ -34,6 +34,7 @@ class IRtoMlogCompiler:
         wrapped_flip = lambda src1, src2, dest: mlog_flip(src1, src2, dest, self.strict_32bit)
         self.registry["setl"] = self.registry["fset"] = mlog_set
         self.registry["label"] = mlog_label
+        self.registry["goto"] = mlog_jump_always
         self.registry["setpc"] = mlog_setpc
         self.registry["rjump"] = mlog_rjump
         self.registry["addl"] = self.registry["fadd"] = mlog_add
