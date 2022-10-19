@@ -37,7 +37,6 @@ class Compiler(NodeVisitor):
         self.globals: dict = None
         self.loops: list = None
         self.loop_end: int = None
-        self.special_vars: dict = None
         self.vtmp_count: int = None
         self.instructions: list = None
         self.if_structure_count: int = 0
