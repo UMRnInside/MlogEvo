@@ -161,14 +161,14 @@ Call a function, does store return address, does NOT automatically push argument
 Return from a function, jump back to callee, does NOT automatically push results.
 
 
-## ASM block
+## ASM Template block
 
-Note that an ASM block can have no input or output variables. Everything in ASM block should be copied line-by-line by backend.
+Note that an ASM Template block can have no input or output variables.
 
-### ASM block begin
+### ASM Template block begin
 * Format: `__asmbegin <input_var_count> [input_var_1] [input_var_2] ...`
 
-### ASM block end
+### ASM Template block end
 * Format: `__asmend <output_var_count> [output_var_1] [output_var_2] ...`
 
 ## Miscellaneous
