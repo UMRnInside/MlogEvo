@@ -120,8 +120,8 @@ class Quadruple:
         if self.instruction in ("if", "ifnot"):
             return F"{self.instruction} {self.src1} {self.relop} {self.src2} goto {self.dest}"
         # if self.instruction == "asm"
-        asm_begin = " ".join(["__asmbegin", str(self.input_vars), ] + self.input_vars)
-        asm_end = " ".join(["__asmend", str(self.output_vars), ] + self.output_vars)
+        asm_begin = " ".join(["__asmbegin", str(len(self.input_vars)), ] + self.input_vars)
+        asm_end = " ".join(["__asmend", str(len(self.output_vars)), ] + self.output_vars)
         result = [asm_begin, ]
         result.extend(self.raw_instructions)
         result.append(asm_end)
