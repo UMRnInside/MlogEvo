@@ -15,21 +15,11 @@ from pycparserext.ext_c_parser import GnuCParser, \
         FuncDeclExt
 
 from ..intermediate import Quadruple
+from ..intermediate.function import Function
 from .parent_node_visitor import ParentNodeVisitor
 from .type_util import choose_binaryop_instruction, \
         choose_unaryop_instruction, \
         extract_typename
-
-# function_locals[variable_name] = variable_type (as TypeDecl/PtrDecl/Struct)
-# variable_name in function_locals are UNDECORATED
-# params: [(parameter_realname_1, typedecl_1), ... ]
-@dataclass
-class Function:
-    name: str
-    result_type: TypeDecl
-    params: list
-    local_vars: dict
-    instructions: list
 
 # Stateful compiler & ast node visitor
 class Compiler(NodeVisitor):
@@ -60,12 +50,8 @@ class Compiler(NodeVisitor):
                 use_cpp=use_cpp,
                 cpp_args=["-I", get_include_path()],
                 parser=GnuCParser())
-        #ast.show()
         self.visit(ast)
-        self.instructions.append(Quadruple("goto", "main"))
-        for func in self.functions.values():
-            self.instructions.extend(func.instructions)
-        return self.instructions
+        return (self.instructions, list(self.functions.value()) )
 
     def push(self, instruction) -> None:
         if self.current_function is None:
@@ -170,7 +156,8 @@ class Compiler(NodeVisitor):
                 return
             rvalue_type, rvalue = self.visit(node.init)
             rvalue_after_cast = self.static_cast(rvalue, rvalue_type, var_type)
-            self.push(Quadruple("setl", rvalue_after_cast, "", decorated_name))
+            inst = "setl" if extract_typename(var_type) == "int" else "fset"
+            self.push(Quadruple(inst, rvalue_after_cast, "", decorated_name))
             return
         if isinstance(node.type, FuncDecl) or isinstance(node.type, FuncDeclExt):
             func_decl = node.type
