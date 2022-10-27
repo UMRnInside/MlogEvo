@@ -36,7 +36,7 @@ class Compiler(NodeVisitor):
         self.loop_stack: list = None
         super().__init__()
 
-    def compile(self, filename: str, use_cpp=True):
+    def compile(self, filename: str, use_cpp=True, cpp_args=None):
         self.functions = {}
         self.current_function = None
         self.globals = {}
@@ -46,9 +46,11 @@ class Compiler(NodeVisitor):
         self.loop_stack = []
         self.instructions = []
 
+        if cpp_args is None:
+            cpp_args = []
         ast = parse_file(filename, 
                 use_cpp=use_cpp,
-                cpp_args=["-I", get_include_path()],
+                cpp_args=["-I", get_include_path()] + cpp_args,
                 parser=GnuCParser())
         self.visit(ast)
         return (self.instructions, self.functions )
