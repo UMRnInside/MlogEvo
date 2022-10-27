@@ -51,7 +51,7 @@ class Compiler(NodeVisitor):
                 cpp_args=["-I", get_include_path()],
                 parser=GnuCParser())
         self.visit(ast)
-        return (self.instructions, list(self.functions.value()) )
+        return (self.instructions, self.functions )
 
     def push(self, instruction) -> None:
         if self.current_function is None:
