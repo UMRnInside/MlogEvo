@@ -19,4 +19,4 @@ def mlog_expand_asm_template(asm_inst: Quadruple, unique_number: int) -> str:
     for asm_line in asm_inst.raw_instructions:
         res_line = re.sub(template_pattern, replacer, asm_line)
         results.append(res_line)
-    return "\n".join(results)
+    return results

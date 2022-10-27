@@ -24,7 +24,7 @@ class Backend:
         for i in range(len(ir_list)):
             if ir_list[i].instruction != "asm":
                 continue
-            ir_list[i] = self.asm_template_handler(ir_list[i], asm_blocks)
+            ir_list[i].raw_instructions = self.asm_template_handler(ir_list[i], asm_blocks)
             asm_blocks += 1
         return ir_list
 
