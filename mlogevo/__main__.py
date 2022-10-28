@@ -13,12 +13,17 @@ parser.add_argument("-D", type=str, action="append",
         help="macros")
 parser.add_argument("-I", type=str, action="append",
         help="include directories")
+parser.add_argument("-m", type=str, action="append",
+        help="machine dependant options")
+parser.add_argument("-f", type=str, action="append",
+        help="machine independant options")
 
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
         help="target architecture")
 parser.add_argument("-mtarget", type=str, choices=("mlog", ), default="mlog",
         help="output format, default mlog")
+
 
 def main(argv=None):
     if argv is None:
