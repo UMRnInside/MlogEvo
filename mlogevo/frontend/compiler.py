@@ -61,6 +61,23 @@ class Compiler(NodeVisitor):
             return
         self.current_function.instructions.append(instruction)
 
+    def peek(self):
+        if self.current_function is None:
+            return self.instructions[-1]
+        return self.current_function.instructions[-1]
+
+    def heuristic_assign(self, src_var, dest_var, dest_typedecl):
+        """ Peek last instruction that generates temp variable.
+        Redirect last instruction to dest_var if feasible.
+        Require decorated variable name. """
+        dest_type = extract_typename(dest_typedecl)
+        copy_inst = "setl" if dest_type in ("int", ) else "fset"
+        if is_mlogev_temp_var(src_var) and self.peek().dest == src_var:
+            self.peek().dest = dest_var
+            self.remove_temp_variable(src_var)
+            return
+        self.push(Quadruple(copy_inst, src_var, "", dest_var))
+
     # For global variables:
     # it will NOT decorate them
     def decorate_variable(self, variable_name):
@@ -79,6 +96,16 @@ class Compiler(NodeVisitor):
         if autodecorate:
             return self.decorate_variable(temp_var_name)
         return temp_var_name
+
+    def remove_temp_variable(self, decorated_name):
+        if not "__vtmp_" in decorated_name:
+            return
+        if self.current_function is None:
+            self.globals.pop(decorated_name, None)
+            return
+        first_at = decorated_name.find('@')
+        raw_name = decorated_name[1:first_at]
+        self.current_function.local_vars.pop(raw_name, None)
 
     def get_variable(self, var_name) -> str:
         result = None
@@ -158,8 +185,7 @@ class Compiler(NodeVisitor):
                 return
             rvalue_type, rvalue = self.visit(node.init)
             rvalue_after_cast = self.static_cast(rvalue, rvalue_type, var_type)
-            inst = "setl" if extract_typename(var_type) == "int" else "fset"
-            self.push(Quadruple(inst, rvalue_after_cast, "", decorated_name))
+            self.heuristic_assign(rvalue_after_cast, decorated_name, var_type)
             return
         if isinstance(node.type, FuncDecl) or isinstance(node.type, FuncDeclExt):
             func_decl = node.type
@@ -190,11 +216,7 @@ class Compiler(NodeVisitor):
         # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
             rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
-            lvalue_type = extract_typename(lvalue_typedecl)
-            if lvalue_type == "int":
-                self.push(Quadruple("setl", rvalue_after_cast, "", lvalue_decorated))
-            elif lvalue_type == "double":
-                self.push(Quadruple("fset", rvalue_after_cast, "", lvalue_decorated))
+            self.heuristic_assign(rvalue_after_cast, lvalue_decorated, lvalue_typedecl)
             return (lvalue_typedecl, lvalue_decorated)
 
         binary_op = node.op[:-1]
@@ -208,10 +230,7 @@ class Compiler(NodeVisitor):
         temp_var = self.create_temp_variable(result_typedecl, True)
         self.push(Quadruple(inst, lvalue_decorated, rvalue, temp_var))
         temp_after_cast = self.static_cast(temp_var, result_typedecl, lvalue_typedecl)
-        if lvalue_type == "int":
-            self.push(Quadruple("setl", temp_after_cast, "", lvalue_decorated))
-        elif lvalue_type == "double":
-            self.push(Quadruple("fset", temp_after_cast, "", lvalue_decorated))
+        self.heuristic_assign(temp_after_cast, lvalue_decorated, lvalue_typedecl)
         return (lvalue_typedecl, lvalue_decorated)
 
 
@@ -389,9 +408,8 @@ class Compiler(NodeVisitor):
                     != extract_typename(result_typedecl):
                 result = self.static_cast(r_varname, r_typedecl, result_typedecl)
 
-            inst = "setl" if extract_typename(result_typedecl) == "int" else "fset"
             dest = f"result@{function_name}"
-            self.push(Quadruple(inst, result, "", dest))
+            self.heuristic_assign(result, dest, result_typedecl)
         self.push(Quadruple("__return", function_name))
 
     def visit_FuncCall(self, node):
@@ -409,8 +427,7 @@ class Compiler(NodeVisitor):
             param_type = extract_typename(param_decl[1])
             if extract_typename(arg_typedecl) != param_type:
                 real_argument = self.static_cast(arg_varname, arg_typedecl, param_decl[1])
-            inst = "setl" if param_type == "int" else "fset"
-            self.push(Quadruple(inst, real_argument, "", param_realname))
+            self.heuristic_assign(real_argument, param_realname, param_decl[1])
         self.push(Quadruple("__call", function_name))
         # Assume a function returns something
         return (func.result_type, f"result@{function_name}")
@@ -444,6 +461,9 @@ def extract_asm_operand(operand):
     # FuncCall -> args(ExprList) -> exprs[0]
     expr = operand.args.exprs[0]
     return (constraints, expr)
+
+def is_mlogev_temp_var(varname):
+    return varname.startswith("__vtmp_") or varname.startswith("___vtmp_")
 
 def get_include_path():
 	if os.name == "posix":
