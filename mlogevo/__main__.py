@@ -3,12 +3,15 @@ import sys
 
 from .frontend import Compiler
 from .backend import make_backend
+from .optimizer import append_optimizers
 
 parser = argparse.ArgumentParser(prog="mlogevo")
 parser.add_argument("source_file", type=str, nargs='?', default='')
 parser.add_argument("-o", type=str, nargs='?', default="a.mlog.txt",
         help="output file, '-' for stdout", dest="output")
 
+parser.add_argument("-O", type=int, choices=range(0, 4), default=1,
+        help="optimize level, default 1")
 parser.add_argument("-D", type=str, action="append",
         help="macros")
 parser.add_argument("-I", type=str, action="append",
@@ -45,6 +48,7 @@ def main(argv=None):
         arch=args.march,
         target=args.mtarget
     )
+    append_optimizers(backend, args.m or [], args.f or [], args.O)
     result = backend.compile(
         frontend.compile(
             args.source_file,

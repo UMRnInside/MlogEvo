@@ -1,0 +1,1 @@
+from ..intermediate import Quadruple
