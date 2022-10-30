@@ -19,7 +19,7 @@ from ..intermediate.function import Function
 from .parent_node_visitor import ParentNodeVisitor
 from .type_util import choose_binaryop_instruction, \
         choose_unaryop_instruction, \
-        extract_typename
+        extract_typename, DUMMY_INT_TYPEDECL
 
 # Stateful compiler & ast node visitor
 class Compiler(NodeVisitor):
@@ -34,6 +34,14 @@ class Compiler(NodeVisitor):
         self.if_structure_count: int = 0
         self.loop_structure_count: int = 0
         self.loop_stack: list = None
+        # Used in short-circuit evaluation
+        self.short_circuit_count: int = 0
+        self.short_circuit_triggered: bool = False
+        self.inside_branch_condition: bool = False
+        self.tag_if_true: str = ""
+        self.tag_if_false: str = ""
+        self.tag_if_end: str = ""
+
         super().__init__()
 
     def compile(self, filename: str, use_cpp=True, cpp_args=None):
@@ -43,6 +51,7 @@ class Compiler(NodeVisitor):
         self.vtmp_count = 0
         self.if_structure_count = 0
         self.loop_structure_count = 0
+        self.short_circuit_count: int = 0
         self.loop_stack = []
         self.instructions = []
 
@@ -147,6 +156,22 @@ class Compiler(NodeVisitor):
         end_label = f"{label_prefix}_END_"
         return (current_loop, start_label, cont_label, end_label)
 
+    def start_short_circuit_evaluation(self, tag_if_true="", tag_if_false=""):
+        self.short_circuit_count += 1
+        self.short_circuit_triggered = False
+        if tag_if_true == "":
+            prefix = f"__MLOGEV_SCE_{self.short_circuit_count}"
+            self.tag_if_true = f"{prefix}_IFTRUE_"
+            self.tag_if_false = f"{prefix}_IFFALSE_"
+            self.tag_if_end = f"{prefix}_END_"
+        else:
+            self.tag_if_true = tag_if_true
+            self.tag_if_false = tag_if_false
+        self.inside_branch_condition = True
+
+    def end_short_circuit_evaluation(self):
+        self.inside_branch_condition = False
+
     # Start visitors
     def visit_FuncDef(self, node):
         func_name = node.decl.name
@@ -211,8 +236,22 @@ class Compiler(NodeVisitor):
 
     def visit_Assignment(self, node):
         # lvalue_decorated = self.decorate_variable(node.lvalue.name)
+        self.start_short_circuit_evaluation()
         lvalue_typedecl, lvalue_decorated = self.get_variable(node.lvalue.name)
         rvalue_typedecl, rvalue = self.visit(node.rvalue)
+        self.end_short_circuit_evaluation()
+        if self.short_circuit_triggered:
+            # TODO: hardcoded ir
+            # TODO: short circuit broken
+            new_temp = self.create_temp_var(DUMMY_INT_TYPEDECL)
+            self.push(Quadruple("label", self.tag_if_true))
+            self.push(Quadruple("setl", "1", "", new_temp))
+            self.push(Quadruple("goto", self.tag_if_end))
+            self.push(Quadruple("label", self.tag_if_false))
+            self.push(Quadruple("setl", "0", "", new_temp))
+            self.push(Quadruple("label", self.tag_if_end))
+            rvalue_typedecl = DUMMY_INT_TYPEDECL
+            rvalue = new_temp
         # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
             rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
@@ -264,9 +303,26 @@ class Compiler(NodeVisitor):
         return (var_typedecl, name_or_value)
 
     def visit_BinaryOp(self, node):
-        # TODO: Short-circuit evaluation
         left_typedecl, left_var = self.visit(node.left)
+        # Short-circuit environment created in visit_Assignment
+        if_true, if_false = "", ""
+        if self.inside_branch_condition:
+            if_true = self.tag_if_true
+            if_false = self.tag_if_false
+        # Short-circuit evaluation
+        if node.op in ("&&", "||"):
+            self.short_circuit_triggered = True
+            if node.op == "&&":
+                self.push(Quadruple("ifnot", left_var, "false", if_false, relop="!="))
+            else:
+                self.push(Quadruple("if", left_var, "false", if_true, relop="!="))
+
         right_typedecl, right_var = self.visit(node.right)
+        if node.op in ("&&", "||"):
+            # TODO: is pythonic boolean right?
+            return (right_typedecl, right_var)
+        # END Short-circuit evaluation
+
         # TODO: implicit conversion?
         # Assume mlog arch does NOT require explicit int->double conversion
         result_typedecl, inst = choose_binaryop_instruction(
@@ -318,16 +374,21 @@ class Compiler(NodeVisitor):
 
     def visit_If(self, node):
         label_prefix = f"__MLOGEV_IFELSE_{self.if_structure_count}"
+        iftrue_label = f"{label_prefix}_IFTRUE_"
         iffalse_label = f"{label_prefix}_IFFALSE_"
         end_label = f"{label_prefix}_END_"
         self.if_structure_count += 1
 
-        # Omit typedecl: it is always int / bool
-        _, cond_var = self.visit(node.cond)
         dest_label = end_label if node.iffalse is None else iffalse_label
+        # Omit typedecl: it is always int / bool
+        self.start_short_circuit_evaluation(iftrue_label, dest_label)
+        _, cond_var = self.visit(node.cond)
+        self.end_short_circuit_evaluation()
+
         # mlog has a builtin constant "false" == 0
         # optimizer will optimize this `cond_var != false` pattern
         self.push(Quadruple("ifnot", cond_var, "false", dest_label, relop="!="))
+        self.push(Quadruple("label", iftrue_label))
         self.visit(node.iftrue)
 
         if node.iffalse is not None:
