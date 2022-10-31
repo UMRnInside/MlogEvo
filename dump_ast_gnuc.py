@@ -15,7 +15,7 @@ import sys
 sys.path.extend(['.', '..'])
 
 from pycparser import c_parser, c_ast, parse_file
-from pycparserext.ext_c_parser import GnuCParser
+from pycparserext_gnuc.ext_c_parser import GnuCParser
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser('Dump AST')

@@ -1,1 +1,1 @@
-pycparserext>=2021.1
+pycparserext_gnuc>=2022.10

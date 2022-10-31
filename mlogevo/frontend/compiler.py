@@ -11,7 +11,7 @@ from pycparser.c_ast import \
 from pycparser.c_ast import NodeVisitor
 from pycparser import parse_file
 
-from pycparserext.ext_c_parser import GnuCParser, \
+from pycparserext_gnuc.ext_c_parser import GnuCParser, \
         FuncDeclExt
 
 from ..intermediate import Quadruple
