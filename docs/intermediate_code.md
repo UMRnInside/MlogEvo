@@ -45,17 +45,6 @@ A _condition_ is a C-style comparison like `x < 100`
 ### Jump if condition IS Not met
 * Format: `ifnot <condition> goto <label>`
 
-### Set program counter
-* Format: `setpc <value>`
-
-Set _Program Counter_ (`@counter` in mlog) to `value`
-
-### Relative jump
-* Format: `rjump <value>`
-
-Like `setpc`, but it does `@counter = @counter + value` in mlog.
-
-
 ## Arithmetic
 
 ### Addition

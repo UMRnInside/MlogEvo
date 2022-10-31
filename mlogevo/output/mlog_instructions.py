@@ -43,14 +43,6 @@ def mlog_jump_ifnot(arg1, rel_op, arg2, label) -> list[str]:
     inst = F"jump {label} {condition_op} {arg1} {arg2}"
     return [inst, ]
 
-def mlog_setpc(pc_value) -> list[str]:
-    inst = F"set @counter {pc_value}"
-    return [inst, ]
-
-def mlog_rjump(offset) -> list[str]:
-    inst = F"op add @counter @counter {offset}"
-    return [inst, ]
-
 def mlog_add(src1, src2, dest) -> list[str]:
     inst = F"op add {dest} {src1} {src2}"
     return [inst, ]

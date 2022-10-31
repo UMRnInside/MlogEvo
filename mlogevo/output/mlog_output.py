@@ -6,7 +6,6 @@ from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
 from .mlog_instructions import \
     mlog_set, mlog_label, mlog_jump_always, \
     mlog_jump_if, mlog_jump_ifnot, \
-    mlog_setpc, mlog_rjump, \
     mlog_add, mlog_sub, mlog_mul, mlog_div, \
     mlog_idiv, mlog_mod, \
     mlog_floor, mlog_ceil, mlog_minus, \
@@ -35,8 +34,6 @@ class IRtoMlogCompiler:
         self.registry["setl"] = self.registry["fset"] = mlog_set
         self.registry["label"] = mlog_label
         self.registry["goto"] = mlog_jump_always
-        self.registry["setpc"] = mlog_setpc
-        self.registry["rjump"] = mlog_rjump
         self.registry["addl"] = self.registry["fadd"] = mlog_add
         self.registry["subl"] = self.registry["fsub"] = mlog_sub
         self.registry["mull"] = self.registry["fmul"] = mlog_mul
