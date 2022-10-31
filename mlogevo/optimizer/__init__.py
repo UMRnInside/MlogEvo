@@ -13,26 +13,33 @@ from . import mi_remove_unused_labels
 
 from .optimizer_registry import \
         machine_dependant_optimizers, \
-        machine_independant_optimizers
+        machine_independant_optimizers, \
+        md_flags_per_level, mi_flags_per_level
 
 
 def _take_key_1(t):
     return t[1]
 
-def _make_optimizers(optimizers, options):
+def _make_optimizers(choices, optimizers, options):
     excluded = set()
     for option in options:
         if option.startswith("no-"):
             excluded.add(option[2:])
     for option in options:
-        if option in machine_independant_optimizers.keys():
+        if option in optimizers.keys():
             if option in excluded:
                 continue
-            triplet = machine_independant_optimizers[option]
+            triplet = optimizers[option]
             # name: (function, target, rank)
-            optimizers[triplet[1]].append( (triplet[0], triplet[2]) )
-    return optimizers
+            choices[triplet[1]].append( (triplet[0], triplet[2]) )
+    return choices
 
+def _get_flags_by_level(src, flags_per_level, level=0):
+    result = []
+    for i in range(0, level+1):
+        result.extend(flags_per_level[i])
+    result.extend(src)
+    return result
 
 def append_optimizers(backend, machine_dependants, machine_independants, level=0):
     """Automatically append optimizers to Backend object """
@@ -46,9 +53,11 @@ def append_optimizers(backend, machine_dependants, machine_independants, level=0
         "basic_block_graph": [],
     }
 
+    md_flags = _get_flags_by_level(machine_dependants, md_flags_per_level, level)
+    mi_flags = _get_flags_by_level(machine_independants, mi_flags_per_level, level)
     # TODO: machine-dependant optimizers
-    _make_optimizers(md_optimizers, machine_dependants)
-    _make_optimizers(mi_optimizers, machine_independants)
+    _make_optimizers(md_optimizers, machine_dependant_optimizers, md_flags)
+    _make_optimizers(mi_optimizers, machine_independant_optimizers, mi_flags)
 
     for li in mi_optimizers.values():
         li.sort(key=_take_key_1)
