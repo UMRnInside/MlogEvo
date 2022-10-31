@@ -4,7 +4,9 @@ from .optimizer_registry import register_optimizer
 @register_optimizer(
     name="remove-unused-labels",
     target="function",
-    is_machine_dependant=False
+    is_machine_dependant=False,
+    rank=1,
+    optimize_level=1
 )
 def remove_unused_labels(func: Function) -> Function:
     insts = func.instructions
@@ -15,9 +17,9 @@ def remove_unused_labels(func: Function) -> Function:
     # goto: label in src1
     for inst in insts:
         if inst.instruction in ("if", "ifnot"):
-            s.add(inst.dest)
+            used_labels.add(inst.dest)
         elif inst.instruction == "goto":
-            s.add(inst.src1)
+            used_labels.add(inst.src1)
 
     result_insts = []
     # label: name in src1
