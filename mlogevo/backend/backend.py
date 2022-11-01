@@ -17,6 +17,19 @@ class Backend:
             for optimizer in self.function_optimizers:
                 optimizer(body)
 
+            function_basic_blocks = get_basic_blocks(body.instructions)
+            for (block_id, block) in function_basic_blocks.items():
+                for optimizer in self.basic_block_optimizers:
+                    optimizer(block)
+
+            for optimizer in self.block_graph_optimizers:
+                optimizer(function_basic_blocks)
+            n = len(function_basic_blocks.keys())
+            function_ir_list = []
+            for i in range(n):
+                function_ir_list.extend(function_basic_blocks[i])
+            body.instructions = function_ir_list
+
         ir_list = inits[:] + functions["main"].instructions
         # make main() the first function
         for (name, body) in functions.items():
