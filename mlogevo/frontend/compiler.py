@@ -5,21 +5,22 @@ import os
 from ast import literal_eval
 
 from pycparser.c_ast import \
-        Compound, Constant, DeclList, Enum, FileAST, \
-        FuncDecl, Struct, TypeDecl, Typename, PtrDecl
+    Compound, Constant, DeclList, Enum, FileAST, \
+    FuncDecl, Struct, TypeDecl, Typename, PtrDecl
 
 from pycparser.c_ast import NodeVisitor
 from pycparser import parse_file
 
 from pycparserext_gnuc.ext_c_parser import GnuCParser, \
-        FuncDeclExt
+    FuncDeclExt
 
 from ..intermediate import Quadruple
 from ..intermediate.function import Function
 from .parent_node_visitor import ParentNodeVisitor
 from .type_util import choose_binaryop_instruction, \
-        choose_unaryop_instruction, \
-        extract_typename, DUMMY_INT_TYPEDECL
+    choose_unaryop_instruction, \
+    extract_typename, DUMMY_INT_TYPEDECL
+
 
 # Stateful compiler & ast node visitor
 class Compiler(NodeVisitor):
@@ -57,12 +58,12 @@ class Compiler(NodeVisitor):
 
         if cpp_args is None:
             cpp_args = []
-        ast = parse_file(filename, 
-                use_cpp=use_cpp,
-                cpp_args=["-I", get_include_path()] + cpp_args,
-                parser=GnuCParser())
+        ast = parse_file(filename,
+                         use_cpp=use_cpp,
+                         cpp_args=["-I", get_include_path()] + cpp_args,
+                         parser=GnuCParser())
         self.visit(ast)
-        return (self.instructions, self.functions )
+        return (self.instructions, self.functions)
 
     def push(self, instruction) -> None:
         if self.current_function is None:
@@ -80,7 +81,7 @@ class Compiler(NodeVisitor):
         Redirect last instruction to dest_var if feasible.
         Require decorated variable name. """
         dest_type = extract_typename(dest_typedecl)
-        copy_inst = "setl" if dest_type in ("int", ) else "fset"
+        copy_inst = "setl" if dest_type in ("int",) else "fset"
         if is_mlogev_temp_var(src_var) and self.peek().dest == src_var:
             self.peek().dest = dest_var
             self.remove_temp_variable(src_var)
@@ -116,7 +117,7 @@ class Compiler(NodeVisitor):
         raw_name = decorated_name[1:first_at]
         self.current_function.local_vars.pop(raw_name, None)
 
-    def get_variable(self, var_name) -> str:
+    def get_variable(self, var_name) -> tuple:
         result = None
         if self.current_function is not None:
             result = self.current_function.local_vars.get(var_name, None)
@@ -185,10 +186,10 @@ class Compiler(NodeVisitor):
                 params = []
             else:
                 params = [(param_decl.name, param_decl.type)
-                        for param_decl in func_decl.args.params]
+                          for param_decl in func_decl.args.params]
             self.current_function = Function(func_name, func_decl.type, params, dict(params), [])
 
-        #self.function_locals = self.current_function.local_vars
+        # self.function_locals = self.current_function.local_vars
         self.functions[func_name] = self.current_function
 
         self.push(Quadruple("__funcbegin", func_name, ""))
@@ -196,7 +197,7 @@ class Compiler(NodeVisitor):
         self.push(Quadruple("__funcend", func_name, ""))
 
         self.current_function = None
-        #self.function_locals = {}
+        # self.function_locals = {}
 
     def visit_Decl(self, node):
         if isinstance(node.type, TypeDecl):
@@ -205,7 +206,7 @@ class Compiler(NodeVisitor):
             var_type = node.type
             self.declare_variable(var_name, var_type)
             decorated_name = self.decorate_variable(var_name)
-            #print("Decl", var_name, var_type.type)
+            # print("Decl", var_name, var_type.type)
             if node.init is None:
                 return
             rvalue_type, rvalue = self.visit(node.init)
@@ -218,7 +219,7 @@ class Compiler(NodeVisitor):
                 params = []
             else:
                 params = [(param_decl.name, param_decl.type)
-                        for param_decl in func_decl.args.params]
+                          for param_decl in func_decl.args.params]
             self.functions[node.name] = Function(node.name, func_decl.type, params, dict(params), [])
             return
         if isinstance(node.type, Struct):
@@ -227,8 +228,8 @@ class Compiler(NodeVisitor):
             node.show()
             return
         if isinstance(node.type, PtrDecl):
-            #raise NotImplementedError("Pointers are NOT supported in mlog target", node)
-            #node.show()
+            # raise NotImplementedError("Pointers are NOT supported in mlog target", node)
+            # node.show()
             return
         if isinstance(node.type, Enum):
             raise NotImplementedError(node)
@@ -243,7 +244,7 @@ class Compiler(NodeVisitor):
         if self.short_circuit_triggered:
             # TODO: hardcoded ir
             # TODO: short circuit broken
-            new_temp = self.create_temp_var(DUMMY_INT_TYPEDECL)
+            new_temp = self.create_temp_variable(DUMMY_INT_TYPEDECL)
             self.push(Quadruple("label", self.tag_if_true))
             self.push(Quadruple("setl", "1", "", new_temp))
             self.push(Quadruple("goto", self.tag_if_end))
@@ -260,7 +261,7 @@ class Compiler(NodeVisitor):
 
         binary_op = node.op[:-1]
         result_typedecl, inst = choose_binaryop_instruction(
-                binary_op, lvalue_typedecl, rvalue_typedecl
+            binary_op, lvalue_typedecl, rvalue_typedecl
         )
         if extract_typename(result_typedecl) == extract_typename(lvalue_typedecl):
             self.push(Quadruple(inst, lvalue_decorated, rvalue, lvalue_decorated))
@@ -272,10 +273,9 @@ class Compiler(NodeVisitor):
         self.heuristic_assign(temp_after_cast, lvalue_decorated, lvalue_typedecl)
         return (lvalue_typedecl, lvalue_decorated)
 
-
     # Return (type, value)
     def visit_Constant(self, node):
-        if extract_typename(node.type) in ("double", ):
+        if extract_typename(node.type) in ("double",):
             value = str(float(node.value))
             return (node.type, value)
         return (node.type, node.value)
@@ -283,9 +283,9 @@ class Compiler(NodeVisitor):
     def visit_ID(self, node):
         # Reserved for Extended Asm in functions
         if self.current_function is not None \
-            and node.name == "__mlogev_function_return_value__":
+                and node.name == "__mlogev_function_return_value__":
             return (self.current_function.result_type, f"result@{self.current_function.name}")
-        #decorated_name = self.decorate_variable(node.name)
+        # decorated_name = self.decorate_variable(node.name)
         var_typedecl, decorated_name = self.get_variable(node.name)
         return (var_typedecl, decorated_name)
 
@@ -294,7 +294,7 @@ class Compiler(NodeVisitor):
         result_var = self.static_cast(src_var, src_typedecl, node.to_type.type)
         return (node.to_type.type, result_var)
 
-    # May generated by comma operators
+    # May be generated by comma operators
     def visit_ExprList(self, node):
         var_typedecl = None
         name_or_value = None
@@ -326,7 +326,7 @@ class Compiler(NodeVisitor):
         # TODO: implicit conversion?
         # Assume mlog arch does NOT require explicit int->double conversion
         result_typedecl, inst = choose_binaryop_instruction(
-                node.op, left_typedecl, right_typedecl
+            node.op, left_typedecl, right_typedecl
         )
         temp_var = self.create_temp_variable(result_typedecl, True)
         self.push(Quadruple(inst, left_var, right_var, temp_var))
@@ -338,7 +338,7 @@ class Compiler(NodeVisitor):
         if node.op in ("-", "~"):
             result_var = self.create_temp_variable(var_typedecl, True)
             result_typedecl, unary_inst = choose_unaryop_instruction(
-                    node.op, var_typedecl
+                node.op, var_typedecl
             )
             self.push(Quadruple(unary_inst, var_realname, "", result_var))
             return (result_typedecl, result_var)
@@ -350,21 +350,21 @@ class Compiler(NodeVisitor):
             result_var = var_realname
             if node.op in ("p++", "p--"):
                 # TODO: hardcoded "setl" and "fset"
-                copy_inst = "setl" if var_typename in ("int", ) else "fset"
+                copy_inst = "setl" if var_typename in ("int",) else "fset"
                 # Postincrement: copy value
                 result_var = self.create_temp_variable(var_typedecl, True)
                 self.push(Quadruple(copy_inst, var_realname, "", result_var))
             # Avoid hardcoded IR
             # result TypeDecl is always var_typedecl
             _, binary_inst = choose_binaryop_instruction(
-                    node.op[1], var_typedecl, var_typedecl
+                node.op[1], var_typedecl, var_typedecl
             )
             self.push(Quadruple(binary_inst, var_realname, "1", var_realname))
             return (var_typedecl, result_var)
         if node.op == "!":
             result_var = self.create_temp_variable(var_typedecl, True)
             inst, result_typedecl = choose_binaryop_instruction(
-                    "==", var_typedecl, var_typedecl
+                "==", var_typedecl, var_typedecl
             )
             self.push(Quadruple(inst, var_realname, "0", result_var))
             return (result_typedecl, result_var)
@@ -399,7 +399,7 @@ class Compiler(NodeVisitor):
 
     def visit_For(self, node):
         current_loop, start_label, cont_label, end_label = \
-                self.create_loop()
+            self.create_loop()
         afterinit_label = f"__MLOGEV_LOOP_{current_loop}_AFTERINIT_"
 
         self.visit(node.init)
@@ -417,8 +417,8 @@ class Compiler(NodeVisitor):
 
     def visit_DoWhile(self, node):
         current_loop, start_label, cont_label, end_label = \
-                self.create_loop()
-       
+            self.create_loop()
+
         self.push(Quadruple("label", start_label))
         self.visit(node.stmt)
         self.push(Quadruple("label", cont_label))
@@ -430,7 +430,7 @@ class Compiler(NodeVisitor):
 
     def visit_While(self, node):
         current_loop, start_label, cont_label, end_label = \
-                self.create_loop()
+            self.create_loop()
 
         self.push(Quadruple("goto", cont_label))
         self.push(Quadruple("label", start_label))
@@ -458,7 +458,7 @@ class Compiler(NodeVisitor):
         current_loop = self.loop_stack[-1]
         cont_label = f"__MLOGEV_LOOP_{current_loop}_CONT_"
         self.push(Quadruple("goto", cont_label))
-    
+
     def visit_Return(self, node):
         function_name = self.current_function.name
         if node.expr is not None:
@@ -479,7 +479,7 @@ class Compiler(NodeVisitor):
         func = self.functions.get(function_name, None)
         if func is None:
             raise ValueError(f"{function_name} is not a function (or not declared)")
-        #if len(func.params) != len(args):
+        # if len(func.params) != len(args):
         #    raise ValueError(f"{function_name} expect {len(func.params)} params, got {len(args)}")
         for param_decl, arg in zip(func.params, args):
             param_realname = f"_{param_decl[0]}@{function_name}"
@@ -523,13 +523,15 @@ def extract_asm_operand(operand):
     expr = operand.args.exprs[0]
     return (constraints, expr)
 
+
 def is_mlogev_temp_var(varname):
     return varname.startswith("__vtmp_") or varname.startswith("___vtmp_")
 
+
 def get_include_path():
-	if os.name == "posix":
-		return sysconfig.get_path("include", "posix_user")
-	elif os.name == "nt":
-		return sysconfig.get_path("include", "nt")
-	else:
-		raise ValueError(f"Unknown OS {os.name}")
+    if os.name == "posix":
+        return sysconfig.get_path("include", "posix_user")
+    elif os.name == "nt":
+        return sysconfig.get_path("include", "nt")
+    else:
+        raise ValueError(f"Unknown OS {os.name}")
