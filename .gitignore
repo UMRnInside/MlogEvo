@@ -131,3 +131,6 @@ dmypy.json
 # pycparserext (or pycparser)
 lextab.py
 yacctab.py
+
+# PyCharm
+.idea/
