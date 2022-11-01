@@ -20,6 +20,8 @@ parser.add_argument("-m", type=str, action="append",
         help="machine dependant options")
 parser.add_argument("-f", type=str, action="append",
         help="machine independant options")
+parser.add_argument("-print-basic-blocks", action="store_true",
+        help="dump basic blocks")
 
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
@@ -53,7 +55,8 @@ def main(argv=None):
         frontend.compile(
             args.source_file,
             use_cpp=True,
-            cpp_args=cpp_args)
+            cpp_args=cpp_args),
+        args.print_basic_blocks
     )
     if args.output == '-':
         print(result)

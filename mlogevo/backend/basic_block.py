@@ -36,6 +36,7 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
     current_block = []
     allocated = 0
     def submit_current_block():
+        nonlocal allocated, current_block, basic_blocks
         # -2: not filled in yet
         block = BasicBlock(allocated, current_block, -2)
         basic_blocks[allocated] = block
@@ -69,9 +70,10 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
     for (block_id, block) in basic_blocks.items():
         if len(block.instructions) == 0:
             continue
-        if block.instructions[-1] not in BASIC_BLOCK_EXITS:
+        tail = block.instructions[-1]
+        if tail.instruction not in BASIC_BLOCK_EXITS:
             continue
-        dest = extract_destination_label(block.instructions[-1])
+        dest = extract_destination_label(tail)
         block.jump_destination = label_owner.get(dest, -1)
 
     return basic_blocks

@@ -1,6 +1,17 @@
 from ..intermediate.ir_quadruple import Quadruple
 from ..output.mlog_output import IRtoMlogCompiler
 from .asm_template import mlog_expand_asm_template
+from .basic_block import get_basic_blocks
+
+def dump_basic_blocks(name, blocks):
+    n = len(blocks.keys())
+    print("Function", name)
+    for i in range(n):
+        print("BLK", i, ", may jump to", blocks[i].jump_destination)
+        for ir in blocks[i].instructions:
+            print(ir.dump())
+        print()
+    print()
 
 class Backend:
     def __init__(self):
@@ -11,7 +22,7 @@ class Backend:
         self.asm_template_handler = None
         self.outputter = None
 
-    def compile(self, frontend_result) -> str:
+    def compile(self, frontend_result, dump_blocks=False) -> str:
         inits, functions = frontend_result
         for (name, body) in functions.items():
             for optimizer in self.function_optimizers:
@@ -26,9 +37,13 @@ class Backend:
                 optimizer(function_basic_blocks)
             n = len(function_basic_blocks.keys())
             function_ir_list = []
+
             for i in range(n):
-                function_ir_list.extend(function_basic_blocks[i])
+                function_ir_list.extend(function_basic_blocks[i].instructions)
             body.instructions = function_ir_list
+
+            if dump_blocks:
+                dump_basic_blocks(name, function_basic_blocks)
 
         ir_list = inits[:] + functions["main"].instructions
         # make main() the first function
