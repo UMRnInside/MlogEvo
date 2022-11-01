@@ -3,6 +3,7 @@ from ..output.mlog_output import IRtoMlogCompiler
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
 
+
 def dump_basic_blocks(name, blocks):
     n = len(blocks.keys())
     print("Function", name)
@@ -12,6 +13,7 @@ def dump_basic_blocks(name, blocks):
             print(ir.dump())
         print()
     print()
+
 
 class Backend:
     def __init__(self):
@@ -62,20 +64,20 @@ class Backend:
             asm_blocks += 1
         return ir_list
 
-def make_backend(arch="mlog", target="mlog", 
-        machine_independants=None,
-        machine_dependants=None):
+
+def make_backend(arch="mlog", target="mlog",
+                 machine_independents=None,
+                 machine_dependents=None):
     """make_backend(arch='mlog', target='mlog', machine_independants={}, machine_dependants={})
     """
-    if machine_independants is None:
-        machine_independants = []
-    if machine_dependants is None:
-        machine_dependants = []
+    if machine_independents is None:
+        machine_independents = []
+    if machine_dependents is None:
+        machine_dependents = []
 
     backend = Backend()
     if arch == "mlog" and target == "mlog":
         backend.outputter = IRtoMlogCompiler(
-                strict_32bit="strict-32bit" in machine_dependants)
+            strict_32bit="strict-32bit" in machine_dependents)
         backend.asm_template_handler = mlog_expand_asm_template
     return backend
-
