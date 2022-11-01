@@ -17,6 +17,7 @@ BASIC_BLOCK_ENTRANCES = set([
 
 BASIC_BLOCK_EXITS = set([
     "__funcend",
+    "__call",
     "__return",
     "if",
     "ifnot",
