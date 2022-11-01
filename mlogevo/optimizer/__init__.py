@@ -12,13 +12,14 @@ from . import mi_deduplicate_tail_return
 from . import mi_remove_unused_labels
 
 from .optimizer_registry import \
-        machine_dependant_optimizers, \
-        machine_independant_optimizers, \
-        md_flags_per_level, mi_flags_per_level
+    machine_dependent_optimizers, \
+    machine_independent_optimizers, \
+    md_flags_per_level, mi_flags_per_level
 
 
 def _take_key_1(t):
     return t[1]
+
 
 def _make_optimizers(choices, optimizers, options):
     excluded = set()
@@ -31,17 +32,19 @@ def _make_optimizers(choices, optimizers, options):
                 continue
             triplet = optimizers[option]
             # name: (function, target, rank)
-            choices[triplet[1]].append( (triplet[0], triplet[2]) )
+            choices[triplet[1]].append((triplet[0], triplet[2]))
     return choices
+
 
 def _get_flags_by_level(src, flags_per_level, level=0):
     result = []
-    for i in range(0, level+1):
+    for i in range(0, level + 1):
         result.extend(flags_per_level[i])
     result.extend(src)
     return result
 
-def append_optimizers(backend, machine_dependants, machine_independants, level=0):
+
+def append_optimizers(backend, machine_dependents, machine_independents, level=0):
     """Automatically append optimizers to Backend object """
     # TODO: what are they?
     md_optimizers = {
@@ -53,15 +56,15 @@ def append_optimizers(backend, machine_dependants, machine_independants, level=0
         "basic_block_graph": [],
     }
 
-    md_flags = _get_flags_by_level(machine_dependants, md_flags_per_level, level)
-    mi_flags = _get_flags_by_level(machine_independants, mi_flags_per_level, level)
+    md_flags = _get_flags_by_level(machine_dependents, md_flags_per_level, level)
+    mi_flags = _get_flags_by_level(machine_independents, mi_flags_per_level, level)
     # TODO: machine-dependant optimizers
-    _make_optimizers(md_optimizers, machine_dependant_optimizers, md_flags)
-    _make_optimizers(mi_optimizers, machine_independant_optimizers, mi_flags)
+    _make_optimizers(md_optimizers, machine_dependent_optimizers, md_flags)
+    _make_optimizers(mi_optimizers, machine_independent_optimizers, mi_flags)
 
     for li in mi_optimizers.values():
         li.sort(key=_take_key_1)
 
-    backend.function_optimizers = [ t[0] for t in mi_optimizers["function"] ]
-    backend.basic_block_optimizers = [ t[0] for t in mi_optimizers["basic_block"] ]
-    backend.block_graph_optimizers = [ t[0] for t in mi_optimizers["basic_block_graph"] ]
+    backend.function_optimizers = [t[0] for t in mi_optimizers["function"]]
+    backend.basic_block_optimizers = [t[0] for t in mi_optimizers["basic_block"]]
+    backend.block_graph_optimizers = [t[0] for t in mi_optimizers["basic_block_graph"]]

@@ -1,13 +1,14 @@
 from ..intermediate.function import Function
 from .optimizer_registry import register_optimizer
 
-# Machine-independant
+
+# Machine-independent
 # Input: whole function
 # both deduplicate-tail-return and remove-unused-labels can run first
 @register_optimizer(
     name="deduplicate-tail-return",
     target="function",
-    is_machine_dependant=False,
+    is_machine_dependent=False,
     rank=1,
     optimize_level=1
 )

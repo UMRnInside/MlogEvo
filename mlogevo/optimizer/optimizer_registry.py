@@ -1,6 +1,6 @@
 # name: (function, target, rank)
-machine_independant_optimizers = {}
-machine_dependant_optimizers = {}
+machine_independent_optimizers = {}
+machine_dependent_optimizers = {}
 
 # [name1, name2, ... ]
 md_flags_per_level = (
@@ -16,8 +16,9 @@ mi_flags_per_level = (
     [],
 )
 
+
 # Collect optimizers, has side effects
-def register_optimizer(name, target, is_machine_dependant, rank=999, optimize_level=4):
+def register_optimizer(name, target, is_machine_dependent, rank=999, optimize_level=4):
     """name: in command line, -fremove-unused-labels <-> remove-unused-labels
 target: function, basic_block, basic_block_graph
 rank: the lower rank is, the earlier it executes (upon the same target)
@@ -26,10 +27,10 @@ rank: the lower rank is, the earlier it executes (upon the same target)
         def wrapper(*args, **kwargs):
             func(*args, **kwargs)
         # print(name, target, func)
-        dest = machine_independant_optimizers
+        dest = machine_independent_optimizers
         flags_per_level = mi_flags_per_level
-        if is_machine_dependant:
-            dest = machine_dependant_optimizers
+        if is_machine_dependent:
+            dest = machine_dependent_optimizers
             flags_per_level = md_flags_per_level
         dest[name] = (func, target, rank)
         flags_per_level[optimize_level].append(name)

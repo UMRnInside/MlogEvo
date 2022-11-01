@@ -1,10 +1,11 @@
 from ..intermediate.function import Function
 from .optimizer_registry import register_optimizer
 
+
 @register_optimizer(
     name="remove-unused-labels",
     target="function",
-    is_machine_dependant=False,
+    is_machine_dependent=False,
     rank=1,
     optimize_level=1
 )
