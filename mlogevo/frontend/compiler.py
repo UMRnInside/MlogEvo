@@ -16,7 +16,6 @@ from pycparserext_gnuc.ext_c_parser import GnuCParser, \
 
 from ..intermediate import Quadruple
 from ..intermediate.function import Function
-from .parent_node_visitor import ParentNodeVisitor
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
     extract_typename, DUMMY_INT_TYPEDECL
@@ -27,14 +26,14 @@ class Compiler(NodeVisitor):
     def __init__(self):
         self.functions = None
         self.current_function = None
-        self.globals: dict = None
-        self.loops: list = None
-        self.loop_end: int = None
-        self.vtmp_count: int = None
-        self.instructions: list = None
+        self.globals: dict = {}
+        self.loops: list = []
+        self.loop_end: int = 0
+        self.vtmp_count: int = 0
+        self.instructions: list = []
         self.if_structure_count: int = 0
         self.loop_structure_count: int = 0
-        self.loop_stack: list = None
+        self.loop_stack: list = []
         # Used in short-circuit evaluation
         self.short_circuit_count: int = 0
         self.short_circuit_triggered: bool = False
@@ -45,7 +44,7 @@ class Compiler(NodeVisitor):
 
         super().__init__()
 
-    def compile(self, filename: str, use_cpp=True, cpp_args=None):
+    def reset(self):
         self.functions = {}
         self.current_function = None
         self.globals = {}
@@ -55,7 +54,16 @@ class Compiler(NodeVisitor):
         self.short_circuit_count: int = 0
         self.loop_stack = []
         self.instructions = []
+        # Used in short-circuit evaluation
+        self.short_circuit_count: int = 0
+        self.short_circuit_triggered: bool = False
+        self.inside_branch_condition: bool = False
+        self.tag_if_true: str = ""
+        self.tag_if_false: str = ""
+        self.tag_if_end: str = ""
 
+    def compile(self, filename: str, use_cpp=True, cpp_args=None):
+        self.reset()
         if cpp_args is None:
             cpp_args = []
         ast = parse_file(filename,
@@ -402,12 +410,15 @@ class Compiler(NodeVisitor):
             self.create_loop()
         afterinit_label = f"__MLOGEV_LOOP_{current_loop}_AFTERINIT_"
 
-        self.visit(node.init)
+        if node.init is not None:
+            self.visit(node.init)
         self.push(Quadruple("goto", afterinit_label))
         self.push(Quadruple("label", start_label))
-        self.visit(node.stmt)
+        if node.stmt is not None:
+            self.visit(node.stmt)
         self.push(Quadruple("label", cont_label))
-        self.visit(node.next)
+        if node.next is not None:
+            self.visit(node.next)
         self.push(Quadruple("label", afterinit_label))
         _, cond_var = self.visit(node.cond)
         self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
