@@ -18,6 +18,7 @@ from ..intermediate import Quadruple
 from ..intermediate.function import Function
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
+    choose_set_instruction, \
     extract_typename, DUMMY_INT_TYPEDECL
 
 
@@ -88,8 +89,7 @@ class Compiler(NodeVisitor):
         """ Peek last instruction that generates temp variable.
         Redirect last instruction to dest_var if feasible.
         Require decorated variable name. """
-        dest_type = extract_typename(dest_typedecl)
-        copy_inst = "setl" if dest_type in ("int",) else "fset"
+        copy_inst = choose_set_instruction(dest_typedecl)
         if is_mlogev_temp_var(src_var) and self.peek().dest == src_var:
             self.peek().dest = dest_var
             self.remove_temp_variable(src_var)
@@ -353,12 +353,10 @@ class Compiler(NodeVisitor):
         if node.op in ("p++", "p--", "++", "--"):
             # var_realname = self.decorate_variable(node.expr.name)
             # var_typedecl = self.get_variable(node.expr.name)
-            var_typename = extract_typename(var_typedecl)
 
             result_var = var_realname
             if node.op in ("p++", "p--"):
-                # TODO: hardcoded "setl" and "fset"
-                copy_inst = "setl" if var_typename in ("int",) else "fset"
+                copy_inst = choose_set_instruction(var_typedecl)
                 # Postincrement: copy value
                 result_var = self.create_temp_variable(var_typedecl, True)
                 self.push(Quadruple(copy_inst, var_realname, "", result_var))
@@ -508,7 +506,7 @@ class Compiler(NodeVisitor):
         result_ir = Quadruple("asm")
         # node(Asm) -> template(ExprList)
         for constant in node.template:
-            result_ir.raw_instructions.append(literal_eval(constant.value))
+            result_ir.raw_instructions.extend(literal_eval(constant.value).splitlines())
 
         # TODO: assume expr is ID, constraints is discarded
         for operand in (node.input_operands or []):

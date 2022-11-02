@@ -81,3 +81,9 @@ def choose_unaryop_instruction(operator, type_l):
     decorator = lambda inst: f"f{inst}" if result_rank >= 7 else f"{inst}l"
     inst = decorator(CORE_UNARY_OPERATORS[operator])
     return (type_l, inst)
+
+def choose_set_instruction(typedecl):
+    real_type = extract_typename(typedecl)
+    if real_type in ("double", "float"):
+        return "fset"
+    return "setl"
