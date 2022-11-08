@@ -33,7 +33,7 @@ class Backend:
             function_basic_blocks = get_basic_blocks(body.instructions)
             for (block_id, block) in function_basic_blocks.items():
                 for optimizer in self.basic_block_optimizers:
-                    optimizer(block)
+                    optimizer(block, functions)
 
             for optimizer in self.block_graph_optimizers:
                 optimizer(function_basic_blocks)

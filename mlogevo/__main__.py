@@ -22,6 +22,8 @@ parser.add_argument("-f", type=str, action="append",
         help="machine independant options")
 parser.add_argument("-print-basic-blocks", action="store_true",
         help="dump basic blocks")
+parser.add_argument("-skip-preprocess", action="store_false",
+        help="do not invoke `cpp` or `gcc -E`")
 
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
@@ -51,11 +53,13 @@ def main(argv=None):
         target=args.mtarget
     )
     append_optimizers(backend, args.m or [], args.f or [], args.O)
-    result = backend.compile(
-        frontend.compile(
+    frontend_result = frontend.compile(
             args.source_file,
-            use_cpp=True,
-            cpp_args=cpp_args),
+            use_cpp=args.skip_preprocess,
+            cpp_args=cpp_args
+    )
+    result = backend.compile(
+        frontend_result,
         args.print_basic_blocks
     )
     if args.output == '-':

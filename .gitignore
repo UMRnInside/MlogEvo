@@ -134,3 +134,6 @@ yacctab.py
 
 # PyCharm
 .idea/
+
+# Default output file
+a.mlog.txt

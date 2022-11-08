@@ -43,8 +43,7 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
     def submit_current_block():
         nonlocal allocated, current_block, basic_blocks
         # -2: not filled in yet
-        block = BasicBlock(allocated, current_block, -2)
-        basic_blocks[allocated] = block
+        basic_blocks[allocated] = BasicBlock(allocated, current_block, -2)
         current_block = []
         allocated += 1
 
