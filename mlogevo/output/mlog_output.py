@@ -30,7 +30,7 @@ class IRtoMlogCompiler:
         wrapped_xor = lambda src1, src2, dest: mlog_xor(src1, src2, dest, self.strict_32bit)
         wrapped_shl = lambda src1, src2, dest: mlog_shl(src1, src2, dest, self.strict_32bit)
         wrapped_shr = lambda src1, src2, dest: mlog_shr(src1, src2, dest, self.strict_32bit)
-        wrapped_flip = lambda src1, src2, dest: mlog_flip(src1, src2, dest, self.strict_32bit)
+        wrapped_flip = lambda src1, src2, dest: mlog_flip(src1, dest, self.strict_32bit)
         self.registry["setl"] = self.registry["fset"] = mlog_set
         self.registry["label"] = mlog_label
         self.registry["goto"] = mlog_jump_always
