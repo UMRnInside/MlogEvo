@@ -1,24 +1,25 @@
 from dataclasses import dataclass, field
 
-NOARG_INSTRUCTIONS = set([
+NOARG_INSTRUCTIONS = {
     "noop",
-])
+}
 
-I1_INSTRUCTIONS = set([
-    "goto", "setpc", "rjump",
+I1_INSTRUCTIONS = {
+    "goto",
     "label",
     "__funcbegin", "__funcend", "__call", "__return",
-])
+}
 
-I1O1_INSTRUCTIONS = set([
+I1O1_INSTRUCTIONS = {
     "setl", "fset",
     "ffloor", "fceil",
     "minusl", "fminus",
     "notl",
-])
+}
 
-I2O1_INSTRUCTIONS = set([
+I2O1_INSTRUCTIONS = {
     "addl", "fadd",
+    "subl", "fsub",
     "mull", "fmul",
     "divl", "fdiv",
     "reml",
@@ -30,7 +31,8 @@ I2O1_INSTRUCTIONS = set([
     "gteql", "fgteq",
     "eql", "feq",
     "nel", "fne",
-])
+}
+
 
 def test_parameter_type(param: str) -> str:
     """Test a parameter if it's a "immediate_integer", "immediate_float", "variable" or "invalid" """

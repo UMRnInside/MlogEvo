@@ -108,6 +108,7 @@ class IRtoMlogCompiler:
             return handler(src1, dest)
         if instruction in I2O1_INSTRUCTIONS:
             return handler(src1, src2, dest)
+        raise ValueError(f"Unrecognized IR: {repr(instruction)}")
         # TODO: raise an error
         return []
 
