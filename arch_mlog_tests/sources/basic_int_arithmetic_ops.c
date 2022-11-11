@@ -43,7 +43,7 @@ void main() {
     rem_ab = a%b, rem_ba = b%a;
     mixed_1 = 5 + a*2;
     mixed_2 = (5 + a)*2;
-    comma_1 = a+b, a+3, 42;
+    comma_1 = (a+b, a+3, 42);
 
     lshift5_a = a << 5, rshift5_a = a >> 5;
     and_ab = a&b, or_ab = a|b, xor_ab = a^b;

@@ -58,6 +58,11 @@ def compile_and_test(self:unittest.TestCase, source_filename: str, basic_argv: l
         os.remove(mlog_output_file)
 
 
+def make_lambda(src_abspath, basic_argv):
+    # https://stackoverflow.com/questions/19837486/lambda-in-a-loop
+    return lambda that: compile_and_test(that, src_abspath, basic_argv)
+
+
 def inject_class(target_class, basic_argv: list):
     sources_dir = os.path.join(module_abspath, "sources")
     for root, dirs, files in os.walk(sources_dir):
@@ -65,5 +70,5 @@ def inject_class(target_class, basic_argv: list):
             src_abspath = os.path.abspath(os.path.join(root, filename))
             base = os.path.splitext(filename)[0]
             setattr(target_class, "test_" + base,
-                    lambda self: compile_and_test(self, src_abspath, basic_argv)
+                    make_lambda(src_abspath, basic_argv)
             )
