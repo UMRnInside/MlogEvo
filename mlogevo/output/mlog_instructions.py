@@ -59,7 +59,7 @@ def mlog_sub(src1, src2, dest) -> list[str]:
 
 
 def mlog_mul(src1, src2, dest) -> list[str]:
-    inst = F"op sub {dest} {src1} {src2}"
+    inst = F"op mul {dest} {src1} {src2}"
     return [inst, ]
 
 
@@ -96,7 +96,7 @@ def mlog_minus(src, dest) -> list[str]:
 # TODO: strict 32-bit logical operands
 def mlog_and(src1, src2, dest, strict_32bit) -> list[str]:
     insts = []
-    insts.append(F"op b-and {dest} {src1} {src2}")
+    insts.append(F"op and {dest} {src1} {src2}")
     return insts
 
 
