@@ -74,7 +74,8 @@ def choose_binaryop_instruction(operator, type_l, type_r):
     return (result_type, instruction)
 
 
-def choose_unaryop_instruction(operator, type_l):
+def choose_unaryop_instruction(operator, typedecl):
+    type_l = extract_typename(typedecl)
     result_rank = CONVERSION_RANK[type_l]
     if result_rank > 6 and operator == "~":
         raise ValueError(f"type {type_l} does NOT support operator {operator}")
