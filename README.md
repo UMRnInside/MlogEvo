@@ -4,10 +4,16 @@ Compile C code to Mindustry logic, support C99 and some GNU extensions (mostly [
 ## Install
 `pip install mlogevo`
 
-or install from Github: `pip install git+https://github.com/umrninside/mlogevo`
+or install from GitHub: `pip install git+https://github.com/umrninside/mlogevo`
 
 ## Usage
-`python3 -m mlogevo --help`
+```bash
+mlogevo --help
+# Or...
+python3 -m mlogevo --help
+# or sometimes on Windows...
+python -m mlogevo --help
+```
 
 NOTE: Python 3.9 or later is required. `cpp` (from GCC/Clang) is required for comments, macros and preprocessor directives.
 
