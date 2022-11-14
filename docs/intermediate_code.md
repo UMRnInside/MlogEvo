@@ -4,7 +4,7 @@ MlogEvo (or mlogev) intermediate code is (mostly) quadruple, and can be stored i
 
 `instruction arg1 arg2 result`
 
-The suffix `l` indicates "long", or 32-bit signed integers, while `f` prefix means IEEE-754 float64 (or double).
+The suffix `_i32` indicates "long", or 32-bit signed integers, while `_f64` *suffix* means IEEE-754 float64 (or double).
 
 Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Assembly)
 
@@ -22,8 +22,9 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 ## Data transfer
 
 ### Set or copy value
-* Format: `setl <src> <dest>`
-* Format: `fset <src> <dest>`
+* Format: `set_i32 <src> <dest>`
+* Format: `set_f64 <src> <dest>`
+* Format: `set_obj <src> <dest>`
 
 Copies the src operand into the dest operand. Note that if `src` operand is a float64 value, it will be rounded _down_ in `dest` operand.
 The `src` operand can be an immediate value or a variable, while `dest` must be a variable.
@@ -48,82 +49,90 @@ A _condition_ is a C-style comparison like `x < 100`
 ## Arithmetic
 
 ### Addition
-* Format: `addl src1 src2 dest`
-* Format: `fadd src1 src2 dest`
+* Format: `add_i32 src1 src2 dest`
+* Format: `add_f64 src1 src2 dest`
 
 This adds `src1` and `src2` then stores the result in `dest`.
 If any of the `src1` and `src2` operand is float64, the behavior of `addl` is defind by implementation.
 
 ### Subtraction
-* Format: `subl src1 src2 dest`
-* Format: `fsub src1 src2 dest`
+* Format: `sub_i32 src1 src2 dest`
+* Format: `sub_f64 src1 src2 dest`
 
 Like addition, only it subtracts `src2` from `src1` then stores the result in `dest`.
 
 ### Multiplication
-* Format: `mull src1 src2 dest`
-* Format: `fmul src1 src2 dest`
+* Format: `mul_i32 src1 src2 dest`
+* Format: `mul_f64 src1 src2 dest`
 
 This multiplies `src1` by `src2` then stores the result in `dest`.
 
 ### Division (get quotient)
-* Format: `divl dividend divisor dest`
-* Format: `fdiv dividend divisor dest`
+* Format: `div_i32 dividend divisor dest`
+* Format: `div_f64 dividend divisor dest`
 
 This divides dividend by divisor, then stores _quotient_ in dest. Contents in `dividend` and `divisor` remain untouched.
-For `divl`, if `divisor` is not int32, the behavior is defined by implementation.
+For `div_i32`, if `divisor` is not int32, the behavior is defined by implementation.
 
 ### Division (get remainder)
-* Format: `reml dividend divisor dest`
+* Format: `rem_i32 dividend divisor dest`
 
 Like `divl`, only it stores _remainder_ in dest.
 
 ### Ceiling and flooring
-* Format: `ffloor src1 dest`
-* Format: `fceil src1 dest`
+* Format: `floor_f64 src1 dest`
+* Format: `ceil_f64 src1 dest`
+
+### Convert from f64 to i32 (may truncate)
+* Format: `cvtf64_i32 <src> <dest>`
+
+`src` is `f64`.
+
+### Convert from i32 to f64
+* Format: `cvti32_f64 <src> <dest>`
 
 ### Sign Inversion
-* Format: `minusl src dest`
-* Format: `fminus src dest`
+* Format: `minus_i32 src dest`
+* Format: `minus_f64 src dest`
 
 Namely `dest = -src` in C.
 
 ### Comparison
-* Format: `ltl <a> <b> <dest>`
-* Format: `flt <a> <b> <dest>`
+* Format: `lt_i32 <a> <b> <dest>`
+* Format: `lt_f64 <a> <b> <dest>`
 
 Write `1` (integer) to `<dest>` if `a < b` holds, otherwise write `0`
 
 All comparison instructions:
-* `ltl`, `flt`: `a < b`
-* `gtl`, `fgt`: `a > b`
-* `lteql`, `flteq`: `a <= b`
-* `gteql`, `fgteq`: `a >= b`
-* `eql`, `feq`: `a == b`
-* `nel`, `fne`: `a != b`
+* `lt_i32`, `lt_f64`: `a < b`
+* `gt_i32`, `gt_f64`: `a > b`
+* `lteq_i32`, `lteq_f64`: `a <= b`
+* `gteq_i32`, `gteq_f64`: `a >= b`
+* `eq_i32`, `eq_f64`: `a == b`
+* `ne_i32`, `ne_f64`: `a != b`
 
 
 ## Logical and Rearrangement
 
 ### Bitwise and
-* Format: `andl src1 src2 dest`
+* Format: `and_i32 src1 src2 dest`
 
 ### Bitwise or
-* Format: `orl src1 src2 dest`
+* Format: `or_i32 src1 src2 dest`
 
 ### Bitwise xor
-* Format: `xorl src1 src2 dest`
+* Format: `xor_i32 src1 src2 dest`
 
 ### Bitwise inversion
-* Format: `notl src dest`
+* Format: `not_i32 src dest`
 
 ### Logical (unsigned) left shift
-* Format: `lshl src count dest`
+* Format: `lsh_i32 src count dest`
 
 Logical shift `src` to the left by `count` bits, then store its result in `dest`.
 
 ### Logical (unsigned) right shift
-* Format: `rshl src count dest`
+* Format: `rsh_i32 src count dest`
 
 Logical shift `src` to the right by `count` bits, then store its result in `dest`.
 
