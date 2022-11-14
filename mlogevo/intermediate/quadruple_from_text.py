@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+from typing import List
 
 from .ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
@@ -12,7 +13,7 @@ class TextQuadrupleParser:
         self.inside_asm_block = False
         self.current_asm = Quadruple("asm")
 
-    def parse(self, lines) -> list[Quadruple]:
+    def parse(self, lines) -> List[Quadruple]:
         results = []
         for line in lines:
             tokens = line.split()
@@ -61,6 +62,7 @@ class TextQuadrupleParser:
                 continue
                 
         return results
+
 
 if __name__ == "__main__":
     import sys

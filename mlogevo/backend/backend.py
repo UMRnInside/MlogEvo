@@ -1,5 +1,8 @@
 from ..intermediate.ir_quadruple import Quadruple
-from ..output import AbstractIRConverter, IRDumper, IRtoMlogConverter
+from ..output import AbstractIRConverter
+from ..output.mlog_output import IRtoMlogConverter
+from ..output.ir_output import IRDumper
+
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
 from ..optimizer import append_optimizers

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 
 SUPPORTED_TYPES = {
     "i32", "f64",
@@ -101,9 +102,9 @@ class Quadruple:
     src2_type: str = "invalid"
 
     # For asm, instruction name is "asm" (w/o quotes)
-    input_vars: list[str] = field(default_factory=list)
-    output_vars: list[str] = field(default_factory=list)
-    raw_instructions: list[str] = field(default_factory=list)
+    input_vars: List[str] = field(default_factory=list)
+    output_vars: List[str] = field(default_factory=list)
+    raw_instructions: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.src1_type = test_parameter_type(self.src1)

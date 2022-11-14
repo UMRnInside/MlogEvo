@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+from typing import List
+
 from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
         I2O1_INSTRUCTIONS, Quadruple
@@ -62,7 +64,7 @@ class IRtoMlogConverter(AbstractIRConverter):
         self.registry["__call"] = mlog_call
         self.registry["__return"] = mlog_return
 
-    def strip_labels(self, mlog_list) -> list[str]:
+    def strip_labels(self, mlog_list) -> List[str]:
         labels = {}
         results = []
         counter = 0
@@ -90,7 +92,7 @@ class IRtoMlogConverter(AbstractIRConverter):
             results = self.strip_labels(results)
         return "\n".join(results)
 
-    def convert_single_quadruple(self, quadruple: Quadruple) -> list[str]:
+    def convert_single_quadruple(self, quadruple: Quadruple) -> List[str]:
         instruction = quadruple.instruction
         src1, src2, dest = quadruple.src1, quadruple.src2, quadruple.dest
         if instruction == "asm":
@@ -110,8 +112,7 @@ class IRtoMlogConverter(AbstractIRConverter):
         if instruction in I2O1_INSTRUCTIONS:
             return handler(src1, src2, dest)
         raise ValueError(f"Unrecognized IR: {repr(instruction)}")
-        # TODO: raise an error
-        return []
+
 
 if __name__ == "__main__":
     import sys

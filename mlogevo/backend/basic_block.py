@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-
+from typing import List, Dict
 from ..intermediate import Quadruple
 
 
@@ -8,7 +8,7 @@ from ..intermediate import Quadruple
 @dataclass
 class BasicBlock:
     id: int
-    instructions: list[Quadruple] = field(default_factory=list)
+    instructions: List[Quadruple] = field(default_factory=list)
     jump_destination: int = -1
     will_continue: bool = True
 
@@ -43,8 +43,8 @@ def extract_destination_label(ir: Quadruple) -> str:
     return ""
 
 
-def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
-    basic_blocks: dict[int, BasicBlock] = {}
+def get_basic_blocks(ir_list: List[Quadruple]) -> Dict[int, BasicBlock]:
+    basic_blocks: Dict[int, BasicBlock] = {}
     current_block = []
     allocated = 0
 
@@ -72,7 +72,7 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
     if len(current_block) > 0:
         submit_current_block()
 
-    label_owner: dict[str, int] = {}
+    label_owner: Dict[str, int] = {}
     for (block_id, block) in basic_blocks.items():
         for ir in block.instructions:
             if ir.instruction != "label":
