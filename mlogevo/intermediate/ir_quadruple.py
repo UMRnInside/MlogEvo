@@ -1,5 +1,9 @@
 from dataclasses import dataclass, field
 
+SUPPORTED_TYPES = {
+    "i32", "f64",
+}
+
 NOARG_INSTRUCTIONS = {
     "noop",
 }
@@ -11,27 +15,42 @@ I1_INSTRUCTIONS = {
 }
 
 I1O1_INSTRUCTIONS = {
-    "setl", "fset",
-    "ffloor", "fceil",
-    "minusl", "fminus",
-    "notl",
+    "set_obj",
+    "cvtf64_i32", "cvti32_f64",
+}
+I2O1_INSTRUCTIONS = set()
+
+CORE_I1O1_ITEMS = {
+    "set", "minus",
 }
 
-I2O1_INSTRUCTIONS = {
-    "addl", "fadd",
-    "subl", "fsub",
-    "mull", "fmul",
-    "divl", "fdiv",
-    "reml",
-    "andl", "orl", "xorl",
-    "lshl", "rshl",
-    "ltl", "flt",
-    "gtl", "fgt",
-    "lteql", "flteq",
-    "gteql", "fgteq",
-    "eql", "feq",
-    "nel", "fne",
+CORE_I2O1_ITEMS = {
+    "add", "sub", "mul", "div",
+    "lt", "gt", "lteq", "gteq", "eq", "ne"
 }
+
+I32ONLY_I2O1_ITEMS = {
+    "and", "or", "xor", "lsh", "rsh",
+    "rem",
+}
+
+I32ONLY_I1O1_ITEMS = {
+    "not",
+}
+
+for i in CORE_I1O1_ITEMS:
+    for t in SUPPORTED_TYPES:
+        I1O1_INSTRUCTIONS.add(f"{i}_{t}")
+
+for i in CORE_I2O1_ITEMS:
+    for t in SUPPORTED_TYPES:
+        I2O1_INSTRUCTIONS.add(f"{i}_{t}")
+
+for i in I32ONLY_I1O1_ITEMS:
+    I1O1_INSTRUCTIONS.add(f"{i}_i32")
+
+for i in I32ONLY_I2O1_ITEMS:
+    I2O1_INSTRUCTIONS.add(f"{i}_i32")
 
 
 def test_parameter_type(param: str) -> str:
@@ -85,24 +104,6 @@ class Quadruple:
     input_vars: list[str] = field(default_factory=list)
     output_vars: list[str] = field(default_factory=list)
     raw_instructions: list[str] = field(default_factory=list)
-
-    @property
-    def src1(self) -> str:
-        return self._src1
-
-    @property
-    def src2(self) -> str:
-        return self._src2
-
-    @src1.setter
-    def src1(self, value: str) -> None:
-        self._src1 = value
-        self.src1_type = test_parameter_type(self._src1)
-
-    @src2.setter
-    def src2(self, value: str) -> None:
-        self._src2 = value
-        self.src2_type = test_parameter_type(self._src2)
 
     def __post_init__(self):
         self.src1_type = test_parameter_type(self.src1)
