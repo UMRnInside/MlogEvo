@@ -3,7 +3,6 @@ import sys
 
 from .frontend import Compiler
 from .backend import make_backend
-from .optimizer import append_optimizers
 
 parser = argparse.ArgumentParser(prog="mlogevo")
 parser.add_argument("source_file", type=str, nargs='?', default='')
@@ -50,9 +49,12 @@ def main(argv=None):
     frontend = Compiler()
     backend = make_backend(
         arch=args.march,
-        target=args.mtarget
+        target=args.mtarget,
+        machine_dependents=args.m or [],
+        machine_independents=args.f or [],
+        optimize_level=args.O,
     )
-    append_optimizers(backend, args.m or [], args.f or [], args.O)
+
     frontend_result = frontend.compile(
             args.source_file,
             use_cpp=args.skip_preprocess,

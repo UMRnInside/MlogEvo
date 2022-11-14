@@ -2,14 +2,17 @@ from ..intermediate.ir_quadruple import Quadruple
 from ..output import AbstractIRConverter, IRDumper, IRtoMlogConverter
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
+from ..optimizer import append_optimizers
 
 
 def dump_basic_blocks(name, blocks):
     n = len(blocks.keys())
     print("Function", name)
     for i in range(n):
-        print("BLK", i, ", may jump to", blocks[i].jump_destination)
-        for ir in blocks[i].instructions:
+        block = blocks[i]
+        print(f"BLK {i}, may jump to {block.jump_destination}"
+              f"{', may continue' if block.will_continue else ''}")
+        for ir in block.instructions:
             print(ir.dump())
         print()
     print()
@@ -67,7 +70,8 @@ class Backend:
 
 def make_backend(arch="mlog", target="mlog",
                  machine_independents=None,
-                 machine_dependents=None):
+                 machine_dependents=None,
+                 optimize_level=0):
     """make_backend(arch='mlog', target='mlog', machine_independants={}, machine_dependants={})
     """
     if machine_independents is None:
@@ -84,5 +88,7 @@ def make_backend(arch="mlog", target="mlog",
         )
     elif target == "mlogev_ir":
         backend.output_component = IRDumper()
+
+    append_optimizers(backend, machine_dependents, machine_independents, optimize_level)
 
     return backend
