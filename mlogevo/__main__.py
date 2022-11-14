@@ -16,9 +16,9 @@ parser.add_argument("-D", type=str, action="append",
 parser.add_argument("-I", type=str, action="append",
         help="include directories")
 parser.add_argument("-m", type=str, action="append",
-        help="machine dependant options")
+        help="machine dependent options")
 parser.add_argument("-f", type=str, action="append",
-        help="machine independant options")
+        help="machine independent options")
 parser.add_argument("-print-basic-blocks", action="store_true",
         help="dump basic blocks")
 parser.add_argument("-skip-preprocess", action="store_false",
