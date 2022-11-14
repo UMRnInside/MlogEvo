@@ -151,7 +151,7 @@ class Compiler(NodeVisitor):
         dst_typename = extract_typename(dst_typedecl)
         if dst_typename == "int" and src_typename == "double":
             tmp_var = self.create_temp_variable(dst_typedecl, True)
-            self.push(Quadruple("ffloor", src_var, "", tmp_var))
+            self.push(Quadruple("cvtf64_i32", src_var, "", tmp_var))
             return tmp_var
         return src_var
 
@@ -245,22 +245,8 @@ class Compiler(NodeVisitor):
 
     def visit_Assignment(self, node):
         # lvalue_decorated = self.decorate_variable(node.lvalue.name)
-        self.start_short_circuit_evaluation()
         lvalue_typedecl, lvalue_decorated = self.get_variable(node.lvalue.name)
         rvalue_typedecl, rvalue = self.visit(node.rvalue)
-        self.end_short_circuit_evaluation()
-        if self.short_circuit_triggered:
-            # TODO: hardcoded ir
-            # TODO: short circuit broken
-            new_temp = self.create_temp_variable(DUMMY_INT_TYPEDECL)
-            self.push(Quadruple("label", self.tag_if_true))
-            self.push(Quadruple("setl", "1", "", new_temp))
-            self.push(Quadruple("goto", self.tag_if_end))
-            self.push(Quadruple("label", self.tag_if_false))
-            self.push(Quadruple("setl", "0", "", new_temp))
-            self.push(Quadruple("label", self.tag_if_end))
-            rvalue_typedecl = DUMMY_INT_TYPEDECL
-            rvalue = new_temp
         # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
             rvalue_after_cast = self.static_cast(rvalue, rvalue_typedecl, lvalue_typedecl)
