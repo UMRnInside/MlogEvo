@@ -28,7 +28,7 @@ parser.add_argument("-skip-preprocess", action="store_false",
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
         help="target architecture")
-parser.add_argument("-mtarget", type=str, choices=("mlog", ), default="mlog",
+parser.add_argument("-mtarget", type=str, choices=("mlog", "mlogev_ir"), default="mlog",
         help="output format, default mlog")
 
 
@@ -58,10 +58,7 @@ def main(argv=None):
             use_cpp=args.skip_preprocess,
             cpp_args=cpp_args
     )
-    result = backend.compile(
-        frontend_result,
-        args.print_basic_blocks
-    )
+    result = backend.compile(frontend_result)
     if args.output == '-':
         print(result)
         return

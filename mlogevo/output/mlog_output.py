@@ -2,7 +2,7 @@
 from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
         I2O1_INSTRUCTIONS, Quadruple
-
+from .abstract_ir_converter import AbstractIRConverter
 from .mlog_instructions import \
     mlog_set, mlog_label, mlog_jump_always, \
     mlog_jump_if, mlog_jump_ifnot, \
@@ -17,7 +17,8 @@ from .mlog_instructions import \
     mlog_call, mlog_return, \
     mlog_noop
 
-class IRtoMlogCompiler:
+
+class IRtoMlogConverter(AbstractIRConverter):
     def __init__(self, strict_32bit=False, keep_labels=False):
         self.strict_32bit = strict_32bit
         self.keep_labels = keep_labels
@@ -81,7 +82,7 @@ class IRtoMlogCompiler:
                 results[line_no] = " ".join(tokens)
         return results
 
-    def compile(self, ir_list) -> str:
+    def convert(self, ir_list) -> str:
         results = []
         for quadruple in ir_list:
             results.extend(self.convert_single_quadruple(quadruple))
@@ -117,5 +118,5 @@ if __name__ == "__main__":
     from ..intermediate.quadruple_from_text import TextQuadrupleParser
     parser = TextQuadrupleParser()
     result = parser.parse(sys.stdin.readlines())
-    compiler = IRtoMlogCompiler(strict_32bit=False, keep_labels=False)
-    print(compiler.compile(result))
+    compiler = IRtoMlogConverter(strict_32bit=False, keep_labels=False)
+    print(compiler.convert(result))

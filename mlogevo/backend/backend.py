@@ -1,5 +1,5 @@
 from ..intermediate.ir_quadruple import Quadruple
-from ..output.mlog_output import IRtoMlogCompiler
+from ..output import AbstractIRConverter, IRDumper, IRtoMlogConverter
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
 
@@ -22,7 +22,7 @@ class Backend:
         self.basic_block_optimizers = []
         self.block_graph_optimizers = []
         self.asm_template_handler = None
-        self.outputter = None
+        self.output_component: AbstractIRConverter = None
 
     def compile(self, frontend_result, dump_blocks=False) -> str:
         inits, functions = frontend_result
@@ -53,7 +53,7 @@ class Backend:
             if name == "main": continue
             ir_list.extend(body.instructions)
         self.convert_asm(ir_list)
-        return self.outputter.compile(ir_list)
+        return self.output_component.convert(ir_list)
 
     def convert_asm(self, ir_list):
         asm_blocks = 0
@@ -76,8 +76,13 @@ def make_backend(arch="mlog", target="mlog",
         machine_dependents = []
 
     backend = Backend()
-    if arch == "mlog" and target == "mlog":
-        backend.outputter = IRtoMlogCompiler(
-            strict_32bit="strict-32bit" in machine_dependents)
+    if arch == "mlog":
         backend.asm_template_handler = mlog_expand_asm_template
+    if target == "mlog":
+        backend.output_component = IRtoMlogConverter(
+            strict_32bit="strict-32bit" in machine_dependents
+        )
+    elif target == "mlogev_ir":
+        backend.output_component = IRDumper()
+
     return backend
