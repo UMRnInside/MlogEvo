@@ -58,7 +58,7 @@ def main(argv=None):
             use_cpp=args.skip_preprocess,
             cpp_args=cpp_args
     )
-    result = backend.compile(frontend_result)
+    result = backend.compile(frontend_result, dump_blocks=args.print_basic_blocks)
     if args.output == '-':
         print(result)
         return
