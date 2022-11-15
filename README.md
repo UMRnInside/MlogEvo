@@ -15,6 +15,6 @@ python3 -m mlogevo --help
 python -m mlogevo --help
 ```
 
-NOTE: Python 3.9 or later is required. `cpp` (from GCC/Clang) is required for comments, macros and preprocessor directives.
+NOTE: Python 3.7 or later is required. `cpp` (from GCC/Clang) is required for comments, macros and preprocessor directives.
 
 If there is no `cpp`, you can still compile your source code by `python3 -m mlogevo -skip-preprocess`
