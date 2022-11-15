@@ -5,8 +5,11 @@ from .ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
         I2O1_INSTRUCTIONS, Quadruple
 
+
 class TextQuadrupleParser:
     def __init__(self):
+        self.inside_asm_block: bool = False
+        self.current_asm: Quadruple = Quadruple("asm")
         self.reset()
 
     def reset(self):
