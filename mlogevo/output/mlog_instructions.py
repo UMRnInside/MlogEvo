@@ -1,5 +1,9 @@
 #!/usr/bin/python3
-from typing import List, Dict, Iterable
+"""\
+IR instruction implementation for mlog architecture.
+just use mlog_ir_registry
+"""
+from typing import List, Dict, Tuple
 
 condition_ops = {
     "==": "equal",
@@ -22,7 +26,7 @@ inverted_ops = {
 mlog_ir_registry: Dict = {}
 
 
-def mlog_ir_impl(name: str, types: Iterable = ()):
+def mlog_ir_impl(name: str, types: Tuple = ()):
     def decorator(func):
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
