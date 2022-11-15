@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 import sysconfig
 import os
 # for string constants
@@ -19,7 +20,11 @@ from ..intermediate.function import Function
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
     choose_set_instruction, \
-    extract_typename, DUMMY_INT_TYPEDECL
+    extract_typename, DUMMY_INT_TYPEDECL, \
+    CORE_COMPARISONS
+
+SUPPORTED_TYPES = ("i32", "f64")
+COMPARISON_TO_BINARY_OP = {f"{v}_{vtype}": k for (k, v) in CORE_COMPARISONS.items() for vtype in SUPPORTED_TYPES}
 
 
 # Stateful compiler & ast node visitor
@@ -164,6 +169,30 @@ class Compiler(NodeVisitor):
         cont_label = f"{label_prefix}_CONT_"
         end_label = f"{label_prefix}_END_"
         return current_loop, start_label, cont_label, end_label
+
+    def get_faster_conditional_jump(self):
+        if self.current_function is None:
+            return
+        curr_instructions: List[Quadruple] = self.current_function.instructions
+        if len(curr_instructions) < 2:
+            return
+        jumper = curr_instructions[-1]
+        cond_ir = curr_instructions[-2]
+        if jumper.instruction not in ("if", "ifnot"):
+            return
+        if cond_ir.instruction not in COMPARISON_TO_BINARY_OP.keys():
+            return
+        if jumper.src1 != cond_ir.dest:
+            return
+        curr_instructions.pop()
+        curr_instructions.pop()
+        tmpvar = cond_ir.dest
+        self.remove_temp_variable(tmpvar)
+
+        jumper.src1 = cond_ir.src1
+        jumper.src2 = cond_ir.src2
+        jumper.relop = COMPARISON_TO_BINARY_OP[cond_ir.instruction]
+        curr_instructions.append(jumper)
 
     def start_short_circuit_evaluation(self, tag_if_true="", tag_if_false=""):
         self.short_circuit_count += 1
@@ -380,6 +409,8 @@ class Compiler(NodeVisitor):
         # mlog has a builtin constant "false" == 0
         # optimizer will optimize this `cond_var != false` pattern
         self.push(Quadruple("ifnot", cond_var, "false", dest_label, relop="!="))
+        self.get_faster_conditional_jump()
+
         self.push(Quadruple("label", iftrue_label))
         self.visit(node.iftrue)
 
@@ -406,6 +437,7 @@ class Compiler(NodeVisitor):
         self.push(Quadruple("label", afterinit_label))
         _, cond_var = self.visit(node.cond)
         self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 
         self.loop_stack.pop()
@@ -419,6 +451,7 @@ class Compiler(NodeVisitor):
         self.push(Quadruple("label", cont_label))
         _, cond_var = self.visit(node.cond)
         self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 
         self.loop_stack.pop()
@@ -433,6 +466,7 @@ class Compiler(NodeVisitor):
         self.push(Quadruple("label", cont_label))
         _, cond_var = self.visit(node.cond)
         self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 
         self.loop_stack.pop()
