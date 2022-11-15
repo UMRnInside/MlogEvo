@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-
+from typing import List, Dict
 from ..intermediate import Quadruple
 
 
@@ -8,8 +8,9 @@ from ..intermediate import Quadruple
 @dataclass
 class BasicBlock:
     id: int
-    instructions: list[Quadruple] = field(default_factory=list)
+    instructions: List[Quadruple] = field(default_factory=list)
     jump_destination: int = -1
+    will_continue: bool = True
 
 
 BASIC_BLOCK_ENTRANCES = {
@@ -24,6 +25,13 @@ BASIC_BLOCK_EXITS = {
     "if",
     "ifnot",
     "goto",
+    # asm may have multiple output, making things harder
+    # TODO
+    "asm",
+}
+
+NO_CONTINUES = {
+    "goto", "__funcend",
 }
 
 
@@ -35,15 +43,15 @@ def extract_destination_label(ir: Quadruple) -> str:
     return ""
 
 
-def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
-    basic_blocks: dict[int, BasicBlock] = {}
+def get_basic_blocks(ir_list: List[Quadruple]) -> Dict[int, BasicBlock]:
+    basic_blocks: Dict[int, BasicBlock] = {}
     current_block = []
     allocated = 0
 
     def submit_current_block():
         nonlocal allocated, current_block, basic_blocks
         # -2: not filled in yet
-        basic_blocks[allocated] = BasicBlock(allocated, current_block, -2)
+        basic_blocks[allocated] = BasicBlock(allocated, current_block, -1, True)
         current_block = []
         allocated += 1
 
@@ -64,7 +72,7 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
     if len(current_block) > 0:
         submit_current_block()
 
-    label_owner: dict[str, int] = {}
+    label_owner: Dict[str, int] = {}
     for (block_id, block) in basic_blocks.items():
         for ir in block.instructions:
             if ir.instruction != "label":
@@ -75,6 +83,8 @@ def get_basic_blocks(ir_list: list[Quadruple]) -> dict[int, BasicBlock]:
         if len(block.instructions) == 0:
             continue
         tail = block.instructions[-1]
+        if tail.instruction in NO_CONTINUES:
+            block.will_continue = False
         if tail.instruction not in BASIC_BLOCK_EXITS:
             continue
         dest = extract_destination_label(tail)

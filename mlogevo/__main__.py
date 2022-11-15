@@ -3,7 +3,6 @@ import sys
 
 from .frontend import Compiler
 from .backend import make_backend
-from .optimizer import append_optimizers
 
 parser = argparse.ArgumentParser(prog="mlogevo")
 parser.add_argument("source_file", type=str, nargs='?', default='')
@@ -17,9 +16,9 @@ parser.add_argument("-D", type=str, action="append",
 parser.add_argument("-I", type=str, action="append",
         help="include directories")
 parser.add_argument("-m", type=str, action="append",
-        help="machine dependant options")
+        help="machine dependent options")
 parser.add_argument("-f", type=str, action="append",
-        help="machine independant options")
+        help="machine independent options")
 parser.add_argument("-print-basic-blocks", action="store_true",
         help="dump basic blocks")
 parser.add_argument("-skip-preprocess", action="store_false",
@@ -28,7 +27,7 @@ parser.add_argument("-skip-preprocess", action="store_false",
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
         help="target architecture")
-parser.add_argument("-mtarget", type=str, choices=("mlog", ), default="mlog",
+parser.add_argument("-mtarget", type=str, choices=("mlog", "mlogev_ir"), default="mlog",
         help="output format, default mlog")
 
 
@@ -50,18 +49,18 @@ def main(argv=None):
     frontend = Compiler()
     backend = make_backend(
         arch=args.march,
-        target=args.mtarget
+        target=args.mtarget,
+        machine_dependents=args.m or [],
+        machine_independents=args.f or [],
+        optimize_level=args.O,
     )
-    append_optimizers(backend, args.m or [], args.f or [], args.O)
+
     frontend_result = frontend.compile(
             args.source_file,
             use_cpp=args.skip_preprocess,
             cpp_args=cpp_args
     )
-    result = backend.compile(
-        frontend_result,
-        args.print_basic_blocks
-    )
+    result = backend.compile(frontend_result, dump_blocks=args.print_basic_blocks)
     if args.output == '-':
         print(result)
         return

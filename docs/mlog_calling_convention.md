@@ -43,14 +43,14 @@ jump add42 always 0 0
 Or in MlogEv IR:
 ```
 __funcbegin add42
-addl _a@add42 _b@add42 _tmp1@add42
-addl _tmp1@add42 42 _c@add42
-setl _c@add42 result@add42
+add_i32 _a@add42 _b@add42 _tmp1@add42
+add_i32 _tmp1@add42 42 _c@add42
+set_i32 _c@add42 result@add42
 __return add42
 __funcend add42
 
-setl 41 _a@add42
-setl b _b@add42
+set_i32 41 _a@add42
+set_i32 b _b@add42
 __call add42
 ```
 The IR instruction `__call` will store return address and invoke function.
@@ -75,6 +75,6 @@ set @counter _retaddr@add42
 
 Or in MlogEv IR:
 ```
-setl result@add42 _c@add42
+set_i32 result@add42 _c@add42
 __return add42
 ```

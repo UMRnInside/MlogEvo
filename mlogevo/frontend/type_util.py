@@ -1,4 +1,4 @@
-from pycparser.c_ast import TypeDecl, IdentifierType
+from pycparser.c_ast import TypeDecl, IdentifierType, Struct
 
 # NOTE: only int and double invoked
 CONVERSION_RANK = {
@@ -45,33 +45,40 @@ DUMMY_INT_TYPEDECL = TypeDecl("", [], [], __type_int)
 
 
 def extract_typename(typedecl) -> str:
+    if isinstance(typedecl, Struct):
+        return f"struct {typedecl}"
     if isinstance(typedecl, str):
         return typedecl
-    return typedecl.type.names[0]
+    if isinstance(typedecl.type, IdentifierType):
+        return typedecl.type.names[0]
+    raise ValueError(f"Unknown TypeDecl: {typedecl}")
 
 
 def get_arithmetic_result_type(type_l, type_r):
-    rank_l = CONVERSION_RANK[extract_typename(type_l)]
-    rank_r = CONVERSION_RANK[extract_typename(type_r)]
+    rank_l = CONVERSION_RANK.get(extract_typename(type_l), None)
+    rank_r = CONVERSION_RANK.get(extract_typename(type_r), None)
     if rank_l < rank_r:
-        return (type_r, rank_r)
-    return (type_l, rank_l)
+        return type_r, rank_r
+    return type_l, rank_l
+
+
+def decorate_instruction(core, result_rank):
+    return f"{core}_f64" if result_rank >= 7 else f"{core}_i32"
 
 
 def choose_binaryop_instruction(operator, type_l, type_r):
     "type_l, type_r can be string 'int' or TypeDecl. return (typedecl, inst)"
     result_type, result_rank = get_arithmetic_result_type(type_l, type_r)
-    decorator = lambda inst: f"f{inst}" if result_rank >= 7 else f"{inst}l"
 
     if operator in CORE_COMPARISONS.keys():
-        instruction = decorator(CORE_COMPARISONS[operator])
+        instruction = decorate_instruction(CORE_COMPARISONS[operator], result_rank)
         # TODO: type bool
-        return (DUMMY_INT_TYPEDECL, instruction)
+        return DUMMY_INT_TYPEDECL, instruction
     if result_rank > 6 and operator in ("&", "|", "^", "<<", ">>"):
         raise ValueError(f"type {result_type} does NOT support logical operator {operator}")
 
-    instruction = decorator(CORE_BINARY_OPERATORS[operator])
-    return (result_type, instruction)
+    instruction = decorate_instruction(CORE_BINARY_OPERATORS[operator], result_rank)
+    return result_type, instruction
 
 
 def choose_unaryop_instruction(operator, typedecl):
@@ -79,12 +86,14 @@ def choose_unaryop_instruction(operator, typedecl):
     result_rank = CONVERSION_RANK[type_l]
     if result_rank > 6 and operator == "~":
         raise ValueError(f"type {type_l} does NOT support operator {operator}")
-    decorator = lambda inst: f"f{inst}" if result_rank >= 7 else f"{inst}l"
-    inst = decorator(CORE_UNARY_OPERATORS[operator])
-    return (type_l, inst)
+    inst = decorate_instruction(CORE_UNARY_OPERATORS[operator], result_rank)
+    return type_l, inst
+
 
 def choose_set_instruction(typedecl):
     real_type = extract_typename(typedecl)
     if real_type in ("double", "float"):
-        return "fset"
-    return "setl"
+        return "set_f64"
+    if real_type == "struct MlogObject":
+        return "set_obj"
+    return "set_i32"

@@ -1,15 +1,21 @@
 from ..intermediate.ir_quadruple import Quadruple
-from ..output.mlog_output import IRtoMlogCompiler
+from ..output import AbstractIRConverter
+from ..output.mlog_output import IRtoMlogConverter
+from ..output.ir_output import IRDumper
+
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
+from ..optimizer import append_optimizers
 
 
 def dump_basic_blocks(name, blocks):
     n = len(blocks.keys())
     print("Function", name)
     for i in range(n):
-        print("BLK", i, ", may jump to", blocks[i].jump_destination)
-        for ir in blocks[i].instructions:
+        block = blocks[i]
+        print(f"BLK {i}, may jump to {block.jump_destination}"
+              f"{', may continue' if block.will_continue else ''}")
+        for ir in block.instructions:
             print(ir.dump())
         print()
     print()
@@ -22,7 +28,7 @@ class Backend:
         self.basic_block_optimizers = []
         self.block_graph_optimizers = []
         self.asm_template_handler = None
-        self.outputter = None
+        self.output_component: AbstractIRConverter = None
 
     def compile(self, frontend_result, dump_blocks=False) -> str:
         inits, functions = frontend_result
@@ -53,7 +59,7 @@ class Backend:
             if name == "main": continue
             ir_list.extend(body.instructions)
         self.convert_asm(ir_list)
-        return self.outputter.compile(ir_list)
+        return self.output_component.convert(ir_list)
 
     def convert_asm(self, ir_list):
         asm_blocks = 0
@@ -67,7 +73,8 @@ class Backend:
 
 def make_backend(arch="mlog", target="mlog",
                  machine_independents=None,
-                 machine_dependents=None):
+                 machine_dependents=None,
+                 optimize_level=0):
     """make_backend(arch='mlog', target='mlog', machine_independants={}, machine_dependants={})
     """
     if machine_independents is None:
@@ -76,8 +83,15 @@ def make_backend(arch="mlog", target="mlog",
         machine_dependents = []
 
     backend = Backend()
-    if arch == "mlog" and target == "mlog":
-        backend.outputter = IRtoMlogCompiler(
-            strict_32bit="strict-32bit" in machine_dependents)
+    if arch == "mlog":
         backend.asm_template_handler = mlog_expand_asm_template
+    if target == "mlog":
+        backend.output_component = IRtoMlogConverter(
+            strict_32bit="strict-32bit" in machine_dependents
+        )
+    elif target == "mlogev_ir":
+        backend.output_component = IRDumper()
+
+    append_optimizers(backend, machine_dependents, machine_independents, optimize_level)
+
     return backend

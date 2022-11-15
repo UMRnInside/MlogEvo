@@ -1,5 +1,5 @@
 import re
-
+from typing import List
 from ..intermediate import Quadruple
 
 template_pattern = re.compile(r"%([\w\d]+|%|=)")
@@ -15,7 +15,7 @@ def mlog_replace_template(match: re.Match, variables: list, unique_number: int) 
     return variables[int(src)]
 
 
-def mlog_expand_asm_template(asm_inst: Quadruple, unique_number: int) -> list[str]:
+def mlog_expand_asm_template(asm_inst: Quadruple, unique_number: int) -> List[str]:
     results = []
     variables = asm_inst.output_vars + asm_inst.input_vars
     replacer = lambda s: mlog_replace_template(s, variables, unique_number)
