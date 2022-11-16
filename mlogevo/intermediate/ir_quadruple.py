@@ -12,12 +12,14 @@ NOARG_INSTRUCTIONS = {
 I1_INSTRUCTIONS = {
     "goto",
     "label",
-    "__funcbegin", "__funcend", "__call", "__return",
+    "__funcend", "__call", "__return",
 }
 
 I1O1_INSTRUCTIONS = {
     "set_obj",
     "cvtf64_i32", "cvti32_f64",
+    # __funcbegin function_name attribute
+    "__funcbegin",
 }
 I2O1_INSTRUCTIONS = set()
 

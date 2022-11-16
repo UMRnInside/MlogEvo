@@ -14,4 +14,5 @@ class Function:
     params: list
     local_vars: dict
     instructions: list
+    attributes: list
 

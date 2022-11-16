@@ -20,6 +20,7 @@ from ..intermediate.function import Function
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
     choose_set_instruction, \
+    extract_attribute, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
 
@@ -224,12 +225,14 @@ class Compiler(NodeVisitor):
             else:
                 params = [(param_decl.name, param_decl.type)
                           for param_decl in func_decl.args.params]
-            self.current_function = Function(func_name, func_decl.type, params, dict(params), [])
+            specs = [extract_attribute(attr) for attr in node.decl.funcspec] or ["default", ]
+            self.current_function = Function(func_name, func_decl.type, params, dict(params), [], specs)
 
         # self.function_locals = self.current_function.local_vars
         self.functions[func_name] = self.current_function
 
-        self.push(Quadruple("__funcbegin", func_name, ""))
+        ir_attributes = ",".join(self.current_function.attributes)
+        self.push(Quadruple("__funcbegin", func_name, "", ir_attributes))
         self.visit(node.body)
         self.push(Quadruple("__funcend", func_name, ""))
 
@@ -257,7 +260,8 @@ class Compiler(NodeVisitor):
             else:
                 params = [(param_decl.name, param_decl.type)
                           for param_decl in func_decl.args.params]
-            self.functions[node.name] = Function(node.name, func_decl.type, params, dict(params), [])
+            specs = [extract_attribute(attr) for attr in node.decl.funcspec] or ["default", ]
+            self.functions[node.name] = Function(node.name, func_decl.type, params, dict(params), [], specs)
             return
         if isinstance(node.type, Struct):
             if node.type.name != "MlogObject":

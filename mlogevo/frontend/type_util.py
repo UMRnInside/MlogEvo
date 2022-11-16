@@ -1,4 +1,5 @@
-from pycparser.c_ast import TypeDecl, IdentifierType, Struct
+from pycparser.c_ast import TypeDecl, IdentifierType, Struct, ID
+from pycparserext_gnuc.ext_c_parser import AttributeSpecifier
 
 # NOTE: only int and double invoked
 CONVERSION_RANK = {
@@ -97,3 +98,13 @@ def choose_set_instruction(typedecl):
     if real_type == "struct MlogObject":
         return "set_obj"
     return "set_i32"
+
+
+def extract_attribute(specifier: AttributeSpecifier) -> str:
+    if isinstance(specifier, str):
+        return specifier
+    if isinstance(specifier, AttributeSpecifier):
+        for expr in specifier.exprlist:
+            if isinstance(expr, ID):
+                return expr.name
+    return ""

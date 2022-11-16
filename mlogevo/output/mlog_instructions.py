@@ -47,7 +47,7 @@ def mlog_set(src: str, dest: str) -> List[str]:
 
 @mlog_ir_impl("__funcbegin")
 @mlog_ir_impl("label")
-def mlog_label(label) -> List[str]:
+def mlog_label(label, omitted_attributes="") -> List[str]:
     """ label name w/o leading or trailing colon . """
     pseudo_inst = F"{label}:"
     return [pseudo_inst, ]
