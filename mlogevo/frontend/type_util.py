@@ -46,10 +46,10 @@ DUMMY_INT_TYPEDECL = TypeDecl("", [], [], __type_int)
 
 
 def extract_typename(typedecl) -> str:
-    if isinstance(typedecl, Struct):
-        return f"struct {typedecl}"
     if isinstance(typedecl, str):
         return typedecl
+    if isinstance(typedecl.type, Struct):
+        return f"struct {typedecl.type.name}"
     if isinstance(typedecl.type, IdentifierType):
         return typedecl.type.names[0]
     raise ValueError(f"Unknown TypeDecl: {typedecl}")
@@ -70,7 +70,6 @@ def decorate_instruction(core, result_rank):
 def choose_binaryop_instruction(operator, type_l, type_r):
     "type_l, type_r can be string 'int' or TypeDecl. return (typedecl, inst)"
     result_type, result_rank = get_arithmetic_result_type(type_l, type_r)
-
     if operator in CORE_COMPARISONS.keys():
         instruction = decorate_instruction(CORE_COMPARISONS[operator], result_rank)
         # TODO: type bool
