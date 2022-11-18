@@ -205,4 +205,7 @@ def mlog_call(function_name) -> List[str]:
 @mlog_ir_impl("__funcend")
 @mlog_ir_impl("__return")
 def mlog_return(function_name) -> List[str]:
+    # Don't worry, mlog does NOT support recursion
+    if function_name == "main":
+        return ["end", ]
     return [F"set @counter retaddr@{function_name}", ]

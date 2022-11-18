@@ -53,7 +53,9 @@ class Backend:
             if dump_blocks:
                 dump_basic_blocks(name, function_basic_blocks)
 
-        ir_list = inits[:] + functions["main"].instructions
+        ir_list = inits[:]
+        if "main" in functions.keys():
+            ir_list += functions["main"].instructions
         # make main() the first function
         for (name, body) in functions.items():
             if name == "main": continue
@@ -74,8 +76,8 @@ class Backend:
 def make_backend(arch="mlog", target="mlog",
                  machine_independents=None,
                  machine_dependents=None,
-                 optimize_level=0):
-    """make_backend(arch='mlog', target='mlog', machine_independants={}, machine_dependants={})
+                 optimize_level=0) -> Backend:
+    """make_backend(arch='mlog', target='mlog', machine_independents={}, machine_dependents={})
     """
     if machine_independents is None:
         machine_independents = []
@@ -91,7 +93,5 @@ def make_backend(arch="mlog", target="mlog",
         )
     elif target == "mlogev_ir":
         backend.output_component = IRDumper()
-
     append_optimizers(backend, machine_dependents, machine_independents, optimize_level)
-
     return backend
