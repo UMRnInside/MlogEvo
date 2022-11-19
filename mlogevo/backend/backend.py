@@ -1,10 +1,12 @@
 from ..intermediate.ir_quadruple import Quadruple
+from ..intermediate.function import Function
 from ..output import AbstractIRConverter
 from ..output.mlog_output import IRtoMlogConverter
 from ..output.ir_output import IRDumper
 
 from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
+from .inline_utils import filter_inlineable_functions, inline_calls
 from ..optimizer import append_optimizers
 
 
@@ -31,37 +33,44 @@ class Backend:
         self.output_component: AbstractIRConverter = None
 
     def compile(self, frontend_result, dump_blocks=False) -> str:
-        inits, functions = frontend_result
-        for (name, body) in functions.items():
-            for optimizer in self.function_optimizers:
-                optimizer(body)
+        inits, all_functions = frontend_result
+        inline_functions, common_functions = filter_inlineable_functions(all_functions.values())
 
-            function_basic_blocks = get_basic_blocks(body.instructions)
-            for (block_id, block) in function_basic_blocks.items():
-                for optimizer in self.basic_block_optimizers:
-                    optimizer(block, functions)
-
-            for optimizer in self.block_graph_optimizers:
-                optimizer(function_basic_blocks)
-            n = len(function_basic_blocks.keys())
-            function_ir_list = []
-
-            for i in range(n):
-                function_ir_list.extend(function_basic_blocks[i].instructions)
-            body.instructions = function_ir_list
-
-            if dump_blocks:
-                dump_basic_blocks(name, function_basic_blocks)
+        for function in inline_functions.values():
+            self.run_optimize_pass(function, all_functions, dump_blocks)
+        for function in common_functions.values():
+            function.instructions = inline_calls(function.name, function.instructions, inline_functions)
+            self.run_optimize_pass(function, all_functions, dump_blocks)
 
         ir_list = inits[:]
-        if "main" in functions.keys():
-            ir_list += functions["main"].instructions
+        if "main" in common_functions.keys():
+            ir_list += common_functions["main"].instructions
         # make main() the first function
-        for (name, body) in functions.items():
+        for (name, body) in common_functions.items():
             if name == "main": continue
             ir_list.extend(body.instructions)
         self.convert_asm(ir_list)
         return self.output_component.convert(ir_list)
+
+    def run_optimize_pass(self, function: Function, all_functions, dump_blocks=False):
+        for optimizer in self.function_optimizers:
+            optimizer(function)
+
+        function_basic_blocks = get_basic_blocks(function.instructions)
+        for (block_id, block) in function_basic_blocks.items():
+            for optimizer in self.basic_block_optimizers:
+                optimizer(block, all_functions)
+
+        for optimizer in self.block_graph_optimizers:
+            optimizer(function_basic_blocks)
+        n = len(function_basic_blocks.keys())
+        function_ir_list = []
+        for i in range(n):
+            function_ir_list.extend(function_basic_blocks[i].instructions)
+        function.instructions = function_ir_list
+        if dump_blocks:
+            dump_basic_blocks(function.name, function_basic_blocks)
+        return function
 
     def convert_asm(self, ir_list):
         asm_blocks = 0
