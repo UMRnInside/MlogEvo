@@ -10,6 +10,7 @@ This module also provides append_optimizers() function
 # optimizer functions are decorated by @register_optimizer
 from . import mi_deduplicate_tail_return
 from . import mi_remove_unused_labels
+from . import mi_lcse
 
 from .optimizer_registry import \
     machine_dependent_optimizers, \
