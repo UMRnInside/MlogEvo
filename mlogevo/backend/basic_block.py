@@ -32,6 +32,7 @@ BASIC_BLOCK_EXITS = {
 
 NO_CONTINUES = {
     "goto", "__funcend",
+    "__return",
 }
 
 
