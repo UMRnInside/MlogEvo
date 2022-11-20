@@ -58,13 +58,35 @@ def eliminate_local_common_subexpression(
     # Reassign to clear variable_version
     active_variables = variable_version
     variable_version = {}
+    generation_2 = []
+    # If some aliases are active till the end, we should perform copy assignment on them
     for ir_inst in generation_1:
         if ir_inst.instruction in BASIC_BLOCK_ENTRANCES:
+            generation_2.append(ir_inst)
             continue
         if ir_inst.dest == "":
+            generation_2.append(ir_inst)
             continue
-    # TODO
-    basic_block.instructions = generation_1
+        # TODO: should we prefer writing to global variables?
+        old_dest = get_last_version_of_variable(ir_inst.dest, variable_version)
+        new_dest = VersionedVariable(ir_inst.dest, old_dest.version + 1)
+        if old_dest == active_variables.get(ir_inst.dest):
+            # TODO this can be faster
+            for (cname, body) in aliases.items():
+                if body != old_dest:
+                    continue
+                if cname == old_dest or cname not in active_variables.keys():
+                    continue
+                try:
+                    operand_type = ir_inst.instruction.split("_")[-1]
+                    copy_inst = f"set_{operand_type}"
+                    generation_2.append(Quadruple(copy_inst, ir_inst.dest, "", cname))
+                except IndexError:
+                    raise ValueError(f"IR instruction {ir_inst.instruction} does NOT have a type, abort copying")
+        generation_2.append(ir_inst)
+        variable_version[ir_inst.dest] = new_dest
+
+    basic_block.instructions = generation_2
     return basic_block
 
 
