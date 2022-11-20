@@ -75,7 +75,7 @@ class Compiler(NodeVisitor):
             cpp_args = []
         ast = parse_file(filename,
                          use_cpp=use_cpp,
-                         cpp_args=cpp_args,
+                         cpp_args=cpp_args + ["-I", get_include_path()],
                          parser=GnuCParser())
         self.visit(ast)
         return self.instructions, self.functions
@@ -561,3 +561,10 @@ def is_mlogev_temp_var(varname):
     return varname.startswith("__vtmp_") or varname.startswith("___vtmp_")
 
 
+def get_include_path():
+    if os.name == "posix":
+        return sysconfig.get_path("include", "posix_user")
+    elif os.name == "nt":
+        return sysconfig.get_path("include", "nt")
+    else:
+        raise ValueError(f"Unknown OS {os.name}")
