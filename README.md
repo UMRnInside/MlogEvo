@@ -2,9 +2,12 @@
 Compile C code to Mindustry logic, support C99 and some GNU extensions (mostly [GCC Extended ASM](https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html)).
 
 ## Install
-`pip install mlogevo`
+```bash
+pip install mlogevo
+```
+...or install from GitHub: `pip install git+https://github.com/umrninside/mlogevo`
 
-or install from GitHub: `pip install git+https://github.com/umrninside/mlogevo`
+MlogEvo does not have *builtin* functions like [SuperStormer/c2logic](https://github.com/SuperStormer/c2logic), so it's recommended to install [MlogEvo Standard Library](https://github.com/UMRnInside/MlogEvo-stdlib)
 
 ## Usage
 ```bash
