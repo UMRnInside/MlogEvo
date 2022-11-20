@@ -58,8 +58,11 @@ def eliminate_local_common_subexpression(
     # Reassign to clear variable_version
     active_variables = variable_version
     variable_version = {}
+    variable_type: Dict[str, str] = {}
     generation_2 = []
     # If some aliases are active till the end, we should perform copy assignment on them
+    lcse_logger.debug(f"active_variables: {active_variables}")
+    lcse_logger.debug(f"aliases: {aliases}")
     for ir_inst in generation_1:
         if ir_inst.instruction in BASIC_BLOCK_ENTRANCES:
             generation_2.append(ir_inst)
@@ -70,21 +73,39 @@ def eliminate_local_common_subexpression(
         # TODO: should we prefer writing to global variables?
         old_dest = get_last_version_of_variable(ir_inst.dest, variable_version)
         new_dest = VersionedVariable(ir_inst.dest, old_dest.version + 1)
-        if old_dest == active_variables.get(ir_inst.dest):
-            # TODO this can be faster
-            for (cname, body) in aliases.items():
-                if body != old_dest:
-                    continue
-                if cname == old_dest or cname not in active_variables.keys():
-                    continue
-                try:
-                    operand_type = ir_inst.instruction.split("_")[-1]
-                    copy_inst = f"set_{operand_type}"
-                    generation_2.append(Quadruple(copy_inst, ir_inst.dest, "", cname))
-                except IndexError:
-                    raise ValueError(f"IR instruction {ir_inst.instruction} does NOT have a type, abort copying")
+        tokens = ir_inst.instruction.split("_")
+        if len(tokens) == 2:
+            op_type = tokens[-1]
+            variable_type[ir_inst.dest] = op_type
+        # TODO this can be faster
+        for (cname, body) in aliases.items():
+            if body != old_dest:
+                continue
+            lcse_logger.debug(f"considering alias {cname} -> {body}")
+            lcse_logger.debug(f"1: {tuple(active_variables.keys())}")
+            if cname not in active_variables.keys():
+                lcse_logger.debug(f"dropping {cname}: not active")
+                continue
+            try:
+                operand_type = ir_inst.instruction.split("_")[-1]
+                copy_inst = f"set_{operand_type}"
+                generation_2.append(Quadruple(copy_inst, ir_inst.dest, "", cname))
+            except IndexError:
+                raise ValueError(f"IR instruction {ir_inst.instruction} does NOT have a type, abort copying")
         generation_2.append(ir_inst)
         variable_version[ir_inst.dest] = new_dest
+
+    for (name, var) in active_variables.items():
+        if name.startswith("__vtmp_") or name.startswith("___vtmp_"):
+            continue
+        body = aliases.get(var, var)
+        if body.name == name:
+            continue
+        try:
+            body_type = variable_type[body.name]
+            generation_2.append(Quadruple(f"set_{body_type}", body.name, "", name))
+        except KeyError:
+            raise ValueError(f"Cannot determine type of {body.name}")
 
     basic_block.instructions = generation_2
     return basic_block
@@ -149,6 +170,9 @@ def shorten(
     if current_op in op_cache.keys():
         lcse_logger.debug(f"HIT op cache, creating alias {old_dest} = {op_cache[current_op]}")
         aliases[old_dest] = op_cache[current_op]
+        # We will assign this later
+        if should_keep_this_assignment(old_dest.name, callee):
+            variable_version[old_dest.name] = old_dest
         # add_alias(op_cache[current_op], old_dest, aliases, variable_known_aliases)
     else:
         ir.src1 = src1.name
