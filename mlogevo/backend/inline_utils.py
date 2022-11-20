@@ -1,4 +1,5 @@
 from typing import Iterable, Tuple, List, Dict
+from copy import copy
 
 from ..intermediate import Quadruple
 from ..intermediate.function import Function
@@ -70,6 +71,6 @@ def inline_calls(common_function_name: str,
             if inst.instruction == "__return":
                 result_irs.append(Quadruple("goto", return_jump))
                 continue
-            result_irs.append(inst)
+            result_irs.append(copy(inst))
         result_irs.append(Quadruple("label", return_jump))
     return result_irs

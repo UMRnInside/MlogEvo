@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 from context import inject_class
 
-mlogevo_arg = "-march=mlog -mtarget=mlog"
+mlogevo_arg = "-march=mlog -mtarget=mlog -I./MlogEvo-stdlib/include"
 mlogevo_basic_argv = mlogevo_arg.split()
 mlogevo_opt1_argv = mlogevo_basic_argv + ["-O1", ]
 mlogevo_opt2_argv = mlogevo_basic_argv + ["-O2", ]

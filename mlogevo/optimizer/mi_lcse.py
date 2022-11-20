@@ -31,8 +31,10 @@ class CacheableOp(NamedTuple):
 def eliminate_local_common_subexpression(
         basic_block: BasicBlock,
         current_function_name: str,
-        functions: Dict
+        functions: Dict,
+        known_variable_types: Dict[str, str]
 ) -> BasicBlock:
+    lcse_logger.debug("*** START LCSE ***")
     variable_version: Dict[str, VersionedVariable] = {}
     # Variable alias -> Variable
     aliases: Dict[VersionedVariable, VersionedVariable] = {}
@@ -44,14 +46,13 @@ def eliminate_local_common_subexpression(
         callee = basic_block.instructions[-1].src1
 
     for ir_inst in basic_block.instructions:
-        generation_1.extend(
-            shorten(ir_inst, current_function_name, callee,
-                    variable_version, aliases,
-                    op_cache, referred)
-        )
-        if len(generation_1) == 0:
+        tmp = shorten(ir_inst, current_function_name, callee,
+                      variable_version, aliases,
+                      op_cache, referred)
+        generation_1.extend(tmp)
+        if len(tmp) == 0:
             continue
-        last = generation_1[-1]
+        last = tmp[-1]
         # TODO: asm are block exits, but not every time asm jumps out of current block
         if last.instruction == "asm":
             continue
@@ -61,7 +62,7 @@ def eliminate_local_common_subexpression(
     variable_type: Dict[str, str] = {}
     generation_2 = []
     # If some aliases are active till the end, we should perform copy assignment on them
-    lcse_logger.debug(f"active_variables: {active_variables}")
+    lcse_logger.debug(f"active_variables: { {k: v.version for (k, v) in active_variables.items()} }")
     lcse_logger.debug(f"aliases: {aliases}")
     for ir_inst in generation_1:
         if ir_inst.instruction in BASIC_BLOCK_ENTRANCES:
@@ -102,7 +103,9 @@ def eliminate_local_common_subexpression(
         if body.name == name:
             continue
         try:
-            body_type = variable_type[body.name]
+            body_type = variable_type.get(body.name, None)
+            if body_type is None:
+                body_type = known_variable_types[body.name]
             generation_2.append(Quadruple(f"set_{body_type}", body.name, "", name))
         except KeyError:
             raise ValueError(f"Cannot determine type of {body.name}")
@@ -131,9 +134,12 @@ def shorten(
     if ir.instruction == "asm":
         new_input_vars = []
         for var in ir.input_vars:
-            optimized_src = get_last_version_of_variable(var, variable_version)
+            last_src = get_last_version_of_variable(var, variable_version)
+            optimized_src = aliases.get(last_src, last_src)
             referred.add(optimized_src)
             new_input_vars.append(optimized_src.name)
+        lcse_logger.debug(f"ASM input before: {ir.input_vars}")
+        lcse_logger.debug(f"ASM input now: {new_input_vars}")
         ir.input_vars = new_input_vars
         return [ir, ]
 

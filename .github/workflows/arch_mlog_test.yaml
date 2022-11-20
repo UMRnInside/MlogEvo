@@ -30,6 +30,9 @@ jobs:
       - name: Install dev dependencies
         run: |
           pypy3.9 -m pip install -r requirements-dev.txt
+      - name: Download MlogEvo-stdlib
+        run: |
+          git clone --depth 1 https://github.com/UMRnInside/MlogEvo-stdlib
       # Runs a single command using the runners shell
       - name: Compile and run test cases
         run: |

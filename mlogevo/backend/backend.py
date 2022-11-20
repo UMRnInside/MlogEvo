@@ -1,3 +1,4 @@
+from typing import Iterable, Dict
 from ..intermediate.ir_quadruple import Quadruple
 from ..intermediate.function import Function
 from ..output import AbstractIRConverter
@@ -23,6 +24,14 @@ def dump_basic_blocks(name, blocks):
     print()
 
 
+def read_variable_types(ir_list: Iterable[Quadruple], result: Dict[str, str]):
+    for ir in ir_list:
+        if ir.dest == "" or ir.instruction.startswith("__"):
+            continue
+        tokens = ir.instruction.split("_")
+        result[ir.dest] = tokens[-1]
+
+
 class Backend:
     def __init__(self):
         # function_optimizers: work on the whole function
@@ -33,14 +42,19 @@ class Backend:
         self.output_component: AbstractIRConverter = None
 
     def compile(self, frontend_result, dump_blocks=False) -> str:
+        variable_types: Dict[str, str] = {}
         inits, all_functions = frontend_result
+        read_variable_types(inits, variable_types)
+        for function in all_functions.values():
+            read_variable_types(function.instructions, variable_types)
+
         inline_functions, common_functions = filter_inlineable_functions(all_functions.values())
 
         for function in inline_functions.values():
-            self.run_optimize_pass(function, all_functions, dump_blocks)
+            self.run_optimize_pass(function, all_functions, variable_types, dump_blocks)
         for function in common_functions.values():
             function.instructions = inline_calls(function.name, function.instructions, inline_functions)
-            self.run_optimize_pass(function, all_functions, dump_blocks)
+            self.run_optimize_pass(function, all_functions, variable_types, dump_blocks)
 
         ir_list = inits[:]
         if "main" in common_functions.keys():
@@ -52,17 +66,17 @@ class Backend:
         self.convert_asm(ir_list)
         return self.output_component.convert(ir_list)
 
-    def run_optimize_pass(self, function: Function, all_functions, dump_blocks=False):
+    def run_optimize_pass(self, function: Function, all_functions, variable_types: Dict[str, str], dump_blocks=False):
         for optimizer in self.function_optimizers:
             optimizer(function)
 
         function_basic_blocks = get_basic_blocks(function.instructions)
         for (block_id, block) in function_basic_blocks.items():
             for optimizer in self.basic_block_optimizers:
-                optimizer(block, function.name, all_functions)
+                optimizer(block, function.name, all_functions, variable_types)
 
         for optimizer in self.block_graph_optimizers:
-            optimizer(function_basic_blocks)
+            optimizer(function_basic_blocks, variable_types)
         n = len(function_basic_blocks.keys())
         function_ir_list = []
         for i in range(n):
