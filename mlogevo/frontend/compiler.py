@@ -75,7 +75,7 @@ class Compiler(NodeVisitor):
             cpp_args = []
         ast = parse_file(filename,
                          use_cpp=use_cpp,
-                         cpp_args=["-I", get_include_path()] + cpp_args,
+                         cpp_args=cpp_args + ["-I", get_include_path()],
                          parser=GnuCParser())
         self.visit(ast)
         return self.instructions, self.functions

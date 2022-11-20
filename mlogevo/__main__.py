@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from .frontend import Compiler
-from .backend import make_backend
+from .backend import make_backend, ARCH_ID
 
 parser = argparse.ArgumentParser(prog="mlogevo")
 parser.add_argument("source_file", type=str, nargs='?', default='')
@@ -40,7 +40,7 @@ def main(argv=None):
         parser.print_help()
         return
 
-    cpp_args = []
+    cpp_args = [f"-DMLOGEV_ARCH={ARCH_ID[args.march]}", ]
     if args.I:
         cpp_args.extend( ["-I"+path for path in args.I ] )
     if args.D:
