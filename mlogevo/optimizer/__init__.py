@@ -26,7 +26,7 @@ def _make_optimizers(choices, optimizers, options):
     excluded = set()
     for option in options:
         if option.startswith("no-"):
-            excluded.add(option[2:])
+            excluded.add(option[3:])
     for option in options:
         if option in optimizers.keys():
             if option in excluded:
