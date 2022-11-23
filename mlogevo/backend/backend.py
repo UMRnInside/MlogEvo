@@ -92,7 +92,7 @@ class Backend:
     def convert_asm(self, ir_list):
         asm_blocks = 0
         for i in range(len(ir_list)):
-            if ir_list[i].instruction != "asm":
+            if ir_list[i].instruction not in ("asm", "asm_volatile"):
                 continue
             ir_list[i].raw_instructions = self.asm_template_handler(ir_list[i], asm_blocks)
             asm_blocks += 1
