@@ -22,16 +22,22 @@ I1O1_INSTRUCTIONS = {
     "__funcbegin",
 }
 I2O1_INSTRUCTIONS = set()
+O1_INSTRUCTIONS = set()
+COMPARISONS = set()
 
 CORE_I1O1_ITEMS = {
     "set", "minus",
 }
-
 CORE_I2O1_ITEMS = {
     "add", "sub", "mul", "div",
     "lt", "gt", "lteq", "gteq", "eq", "ne"
 }
-
+CORE_O1_ITEMS = {
+    "decl",
+}
+CORE_COMPARISON_ITEMS = {
+    "lt", "lteq", "gteq", "gt", "eq", "ne",
+}
 I32ONLY_I2O1_ITEMS = {
     "and", "or", "xor", "lsh", "rsh",
     "rem",
@@ -40,6 +46,14 @@ I32ONLY_I2O1_ITEMS = {
 I32ONLY_I1O1_ITEMS = {
     "not",
 }
+
+for i in CORE_O1_ITEMS:
+    for t in SUPPORTED_TYPES:
+        O1_INSTRUCTIONS.add(f"{i}_{t}")
+
+for i in CORE_COMPARISON_ITEMS:
+    for t in SUPPORTED_TYPES:
+        COMPARISONS.add(f"{i}_{t}")
 
 for i in CORE_I1O1_ITEMS:
     for t in SUPPORTED_TYPES:
@@ -117,6 +131,8 @@ class Quadruple:
             return F":{self.src1}"
         if self.instruction in NOARG_INSTRUCTIONS:
             return F"{self.instruction}"
+        if self.instruction in O1_INSTRUCTIONS:
+            return F"{self.instruction} {self.dest}"
         if self.instruction in I1_INSTRUCTIONS:
             return F"{self.instruction} {self.src1}"
         if self.instruction in I1O1_INSTRUCTIONS:
