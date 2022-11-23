@@ -19,6 +19,11 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 
 # Supported instructions / verdicts
 
+## Declaration
+* Format: `decl_i32 <var>`
+* Format: `decl_f64 <var>`
+* Format: `decl_obj <var>`
+
 ## Data transfer
 
 ### Set or copy value

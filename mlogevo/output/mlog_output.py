@@ -2,7 +2,7 @@
 from typing import List
 
 from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
-        I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
+        I1_INSTRUCTIONS, O1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
         I2O1_INSTRUCTIONS, Quadruple
 from .abstract_ir_converter import AbstractIRConverter
 from .mlog_instructions import mlog_ir_registry
@@ -56,6 +56,8 @@ class IRtoMlogConverter(AbstractIRConverter):
             return handler()
         if instruction in I1_INSTRUCTIONS:
             return handler(src1)
+        if instruction in O1_INSTRUCTIONS:
+            return handler(dest)
         if instruction in I1O1_INSTRUCTIONS:
             result = handler(src1, dest)
             if self.strict_32bit:

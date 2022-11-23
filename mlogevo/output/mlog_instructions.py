@@ -209,3 +209,8 @@ def mlog_return(function_name) -> List[str]:
     if function_name == "main":
         return ["end", ]
     return [F"set @counter retaddr@{function_name}", ]
+
+
+@mlog_ir_impl("decl", ("i32", "f64", "obj"))
+def mlog_blackhole(var) -> List[str]:
+    return []
