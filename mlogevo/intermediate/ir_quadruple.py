@@ -20,7 +20,7 @@ I1O1_INSTRUCTIONS = {
     "__funcbegin",
 }
 I2O1_INSTRUCTIONS = set()
-O1_INSTRUCTIONS = set()
+O1_INSTRUCTIONS = {"decl_obj", }
 COMPARISONS = set()
 
 CORE_I1O1_ITEMS = {
