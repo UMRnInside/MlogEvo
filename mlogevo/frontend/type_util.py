@@ -91,12 +91,18 @@ def choose_unaryop_instruction(operator, typedecl):
 
 
 def choose_set_instruction(typedecl):
-    real_type = extract_typename(typedecl)
+    real_type: str
+    try:
+        real_type = extract_typename(typedecl)
+    except ValueError:
+        return ""
     if real_type in ("double", "float"):
         return "set_f64"
     if real_type == "struct MlogObject":
         return "set_obj"
-    return "set_i32"
+    if real_type in ("int", ):
+        return "set_i32"
+    return ""
 
 
 def extract_attribute(specifier: AttributeSpecifier) -> str:
