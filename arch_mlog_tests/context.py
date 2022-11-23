@@ -41,7 +41,7 @@ def compile_and_test(self:unittest.TestCase, source_filename: str, basic_argv: l
             runner.assemble_code(f.read())
             runner.run_with_limit(run_limit)
         for (variable, (vtype, value)) in expected_results.items():
-            runner_result = runner.get_variable(variable)
+            runner_result = runner.get_variable(variable) or 0.0
             if vtype in ("double", "float"):
                 self.assertAlmostEqual(
                     runner_result, value,

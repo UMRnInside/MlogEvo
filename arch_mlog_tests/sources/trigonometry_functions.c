@@ -26,7 +26,8 @@ void main() {
     tsin = sin(theta), tcos = cos(theta), ttan = tan(theta);
     tasin = asin(tsin), tacos = acos(tcos), tatan = atan(ttan);
     // This can test if inline calls are implemented correctly
-    tatan2 = atan2(tsin, tcos);
+    double tmp = atan2(tsin, tcos);
+    tatan2 = tmp;
     tatan2_alt = atan2(tsin, -tcos);
 Foo:
     goto Foo;
