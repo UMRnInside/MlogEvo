@@ -1,5 +1,6 @@
 import argparse
 import sys
+import logging
 
 from .frontend import Compiler
 from .backend import make_backend, ARCH_ID
@@ -30,12 +31,33 @@ parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
 parser.add_argument("-mtarget", type=str, choices=("mlog", "mlogev_ir"), default="mlog",
         help="output format, default mlog")
 
+# debug logs
+parser.add_argument("--log-level", type=str, choices=("DEBUG", "INFO", "WARNING", "ERROR", "FATAL"),
+        default="FATAL",
+        help="set log level, default FATAL (or CRITICAL)")
+parser.add_argument("--log-file", type=str, default="-",
+        help="log file path (default: stderr)")
+
+_nameToLevel = {
+    'CRITICAL': logging.CRITICAL,
+    'FATAL': logging.FATAL,
+    'ERROR': logging.ERROR,
+    'WARN': logging.WARNING,
+    'WARNING': logging.WARNING,
+    'INFO': logging.INFO,
+    'DEBUG': logging.DEBUG,
+    'NOTSET': logging.NOTSET,
+}
+
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
     args = parser.parse_args(argv)
     #print(args)
+    logging.basicConfig(level=_nameToLevel[args.log_level])
+    if args.log_file != "-":
+        logging.basicConfig(filename=args.log_file, level=_nameToLevel[args.log_level])
     if not args.source_file:
         parser.print_help()
         return
@@ -66,6 +88,7 @@ def main(argv=None):
         return
     with open(args.output, "w") as f:
         f.write(result)
+
 
 if __name__ == '__main__':
     main()

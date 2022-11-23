@@ -7,7 +7,6 @@ from ..intermediate import Quadruple
 from ..intermediate.ir_quadruple import I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, I2O1_INSTRUCTIONS, O1_INSTRUCTIONS
 from ..backend.basic_block import BasicBlock, BASIC_BLOCK_ENTRANCES, BASIC_BLOCK_EXITS
 from .optimizer_registry import register_optimizer
-logging.basicConfig(level=logging.DEBUG)
 lcse_logger = logging.getLogger("lcse")
 
 
