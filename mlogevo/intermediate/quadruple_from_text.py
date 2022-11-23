@@ -2,8 +2,8 @@
 from typing import List
 
 from .ir_quadruple import NOARG_INSTRUCTIONS, \
-        I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
-        I2O1_INSTRUCTIONS, Quadruple
+    O1_INSTRUCTIONS, I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
+    I2O1_INSTRUCTIONS, Quadruple
 
 
 class TextQuadrupleParser:
@@ -24,15 +24,15 @@ class TextQuadrupleParser:
                 continue
 
             inst = tokens[0]
-            if inst != "__asmend" and self.inside_asm_block:
+            if inst not in ("__asmend", "__asmvend") and self.inside_asm_block:
                 self.current_asm.raw_instructions.append(line)
                 continue
-            if inst == "__asmbegin" and not self.inside_asm_block:
+            if inst in ("__asmbegin", "__asmvbegin") and not self.inside_asm_block:
                 self.inside_asm_block = True
-                self.current_asm = Quadruple("asm")
+                self.current_asm = Quadruple("asm_volatile" if inst == "__asmvbegin" else "__asmbegin")
                 self.current_asm.input_vars = tokens[2:]
                 continue
-            if inst == "__asmend":
+            if inst in ("__asmend", "__asmvend"):
                 self.inside_asm_block = False
                 self.current_asm.output_vars = tokens[2:]
                 results.append(self.current_asm)
@@ -43,6 +43,9 @@ class TextQuadrupleParser:
                 continue
             if inst in NOARG_INSTRUCTIONS:
                 results.append(Quadruple(inst))
+                continue
+            if inst in O1_INSTRUCTIONS:
+                results.append(Quadruple(inst, dest=tokens[1]))
                 continue
             if inst in I1_INSTRUCTIONS:
                 results.append(Quadruple(inst, tokens[1]))

@@ -26,8 +26,8 @@ BASIC_BLOCK_EXITS = {
     "ifnot",
     "goto",
     # asm may have multiple output, making things harder
-    # TODO: asm goto
-    # "asm",
+    # asm volatile as asm goto?
+    "asm_volatile",
 }
 
 NO_CONTINUES = {

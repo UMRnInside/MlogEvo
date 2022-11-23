@@ -168,11 +168,15 @@ Return from a function, jump back to callee, does NOT automatically push results
 
 Note that an ASM Template block can have no input or output variables.
 
-### ASM Template block begin
+### ASM Template block begin and end
 * Format: `__asmbegin <input_var_count> [input_var_1] [input_var_2] ...`
-
-### ASM Template block end
 * Format: `__asmend <output_var_count> [output_var_1] [output_var_2] ...`
+* Internal notation: `Quadruple(instruction="asm")`
+
+### Volatile ASM Template block begin and end
+* Format: `__asmvbegin <input_var_count> [input_var_1] [input_var_2] ...`
+* Format: `__asmvend <output_var_count> [output_var_1] [output_var_2] ...`
+* Internal notation: `Quadruple(instruction="asm_volatile")`
 
 ## Miscellaneous
 

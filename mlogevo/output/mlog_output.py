@@ -3,7 +3,7 @@ from typing import List
 
 from ..intermediate.ir_quadruple import NOARG_INSTRUCTIONS, \
         I1_INSTRUCTIONS, O1_INSTRUCTIONS, I1O1_INSTRUCTIONS, \
-        I2O1_INSTRUCTIONS, Quadruple
+        I2O1_INSTRUCTIONS, ASM_INSTRUCTIONS, Quadruple
 from .abstract_ir_converter import AbstractIRConverter
 from .mlog_instructions import mlog_ir_registry
 
@@ -45,7 +45,7 @@ class IRtoMlogConverter(AbstractIRConverter):
     def convert_single_quadruple(self, quadruple: Quadruple) -> List[str]:
         instruction = quadruple.instruction
         src1, src2, dest = quadruple.src1, quadruple.src2, quadruple.dest
-        if instruction == "asm":
+        if instruction in ASM_INSTRUCTIONS:
             return quadruple.raw_instructions
         handler = mlog_ir_registry[instruction]
         if instruction in ("if", "ifnot"):

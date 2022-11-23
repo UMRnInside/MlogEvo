@@ -1,20 +1,18 @@
 from dataclasses import dataclass, field
 from typing import List
 
-SUPPORTED_TYPES = {
+SUPPORTED_ARITHMETIC_TYPES = {
     "i32", "f64",
 }
-
+ASM_INSTRUCTIONS = {"asm", "asm_volatile"}
 NOARG_INSTRUCTIONS = {
     "noop",
 }
-
 I1_INSTRUCTIONS = {
     "goto",
     "label",
     "__funcend", "__call", "__return",
 }
-
 I1O1_INSTRUCTIONS = {
     "set_obj",
     "cvtf64_i32", "cvti32_f64",
@@ -42,25 +40,24 @@ I32ONLY_I2O1_ITEMS = {
     "and", "or", "xor", "lsh", "rsh",
     "rem",
 }
-
 I32ONLY_I1O1_ITEMS = {
     "not",
 }
 
 for i in CORE_O1_ITEMS:
-    for t in SUPPORTED_TYPES:
+    for t in SUPPORTED_ARITHMETIC_TYPES:
         O1_INSTRUCTIONS.add(f"{i}_{t}")
 
 for i in CORE_COMPARISON_ITEMS:
-    for t in SUPPORTED_TYPES:
+    for t in SUPPORTED_ARITHMETIC_TYPES:
         COMPARISONS.add(f"{i}_{t}")
 
 for i in CORE_I1O1_ITEMS:
-    for t in SUPPORTED_TYPES:
+    for t in SUPPORTED_ARITHMETIC_TYPES:
         I1O1_INSTRUCTIONS.add(f"{i}_{t}")
 
 for i in CORE_I2O1_ITEMS:
-    for t in SUPPORTED_TYPES:
+    for t in SUPPORTED_ARITHMETIC_TYPES:
         I2O1_INSTRUCTIONS.add(f"{i}_{t}")
 
 for i in I32ONLY_I1O1_ITEMS:
@@ -142,8 +139,9 @@ class Quadruple:
         if self.instruction in ("if", "ifnot"):
             return F"{self.instruction} {self.src1} {self.relop} {self.src2} goto {self.dest}"
         # if self.instruction == "asm"
-        asm_begin = " ".join(["__asmbegin", str(len(self.input_vars)), ] + self.input_vars)
-        asm_end = " ".join(["__asmend", str(len(self.output_vars)), ] + self.output_vars)
+        opt_v = "v" if self.instruction == "asm_volatile" else ""
+        asm_begin = " ".join([f"__asm{opt_v}begin", str(len(self.input_vars)), ] + self.input_vars)
+        asm_end = " ".join([f"__asm{opt_v}end", str(len(self.output_vars)), ] + self.output_vars)
         result = [asm_begin, ]
         result.extend(self.raw_instructions)
         result.append(asm_end)

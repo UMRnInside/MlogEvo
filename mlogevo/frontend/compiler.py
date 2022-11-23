@@ -13,7 +13,7 @@ from pycparser.c_ast import NodeVisitor
 from pycparser import parse_file
 
 from pycparserext_gnuc.ext_c_parser import GnuCParser, \
-    FuncDeclExt
+    FuncDeclExt, Asm
 
 from ..intermediate import Quadruple
 from ..intermediate.function import Function
@@ -538,8 +538,10 @@ class Compiler(NodeVisitor):
         # Assume a function returns something
         return func.result_type, f"result@{function_name}"
 
-    def visit_Asm(self, node):
+    def visit_Asm(self, node: Asm):
         result_ir = Quadruple("asm")
+        if "volatile" in node.asm_keyword:
+            result_ir = Quadruple("asm_volatile")
         # node(Asm) -> template(ExprList)
         for constant in node.template:
             result_ir.raw_instructions.extend(literal_eval(constant.value).splitlines())
