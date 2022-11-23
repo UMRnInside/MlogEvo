@@ -1,5 +1,5 @@
 from typing import Iterable, Dict
-from ..intermediate.ir_quadruple import Quadruple
+from ..intermediate.ir_quadruple import Quadruple, COMPARISONS
 from ..intermediate.function import Function
 from ..output import AbstractIRConverter
 from ..output.mlog_output import IRtoMlogConverter
@@ -28,6 +28,10 @@ def read_variable_types(ir_list: Iterable[Quadruple], result: Dict[str, str]):
     for ir in ir_list:
         if ir.dest == "" or ir.instruction.startswith("__"):
             continue
+        if ir.instruction in ("if", "ifnot"):
+            continue
+        if ir.instruction in COMPARISONS:
+            result[ir.dest] = "i32"
         tokens = ir.instruction.split("_")
         result[ir.dest] = tokens[-1]
 
@@ -47,7 +51,6 @@ class Backend:
         read_variable_types(inits, variable_types)
         for function in all_functions.values():
             read_variable_types(function.instructions, variable_types)
-
         inline_functions, common_functions = filter_inlineable_functions(all_functions.values())
 
         for function in inline_functions.values():

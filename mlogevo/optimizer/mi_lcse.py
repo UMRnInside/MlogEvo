@@ -1,16 +1,30 @@
 import logging
+import copy
+from dataclasses import dataclass, field
 from typing import NamedTuple, Dict, Tuple, List, Set
+from collections import defaultdict, deque
 from ..intermediate import Quadruple
-from ..backend.basic_block import BasicBlock, BASIC_BLOCK_ENTRANCES
+from ..intermediate.ir_quadruple import I1_INSTRUCTIONS, I1O1_INSTRUCTIONS, I2O1_INSTRUCTIONS, O1_INSTRUCTIONS
+from ..backend.basic_block import BasicBlock, BASIC_BLOCK_ENTRANCES, BASIC_BLOCK_EXITS
 from .optimizer_registry import register_optimizer
-#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 lcse_logger = logging.getLogger("lcse")
 
 
 # immediate integers/floats has version 0, this is expected
 class VersionedVariable(NamedTuple):
     name: str
-    version: int
+    version: int = 0
+
+    def __str__(self):
+        return f"({self.name}: {self.version})"
+
+
+class VersionedVariableDict(dict):
+    def __missing__(self, key):
+        default = VersionedVariable(key, 0)
+        self[key] = default
+        return default
 
 
 class CacheableOp(NamedTuple):
@@ -19,6 +33,30 @@ class CacheableOp(NamedTuple):
     src2: VersionedVariable
     # Do we need this?
     # dest: VersionedVariable
+
+
+@dataclass
+class DagNode:
+    id: int
+    instruction: str
+    # List[(Node, nth output)]
+    depends: List[Tuple] = field(default_factory=list)
+    rdepends: List = field(default_factory=list)
+    provides: List[VersionedVariable] = field(default_factory=list)
+    # Optional, for asm block only
+    original_ir: Quadruple = None
+
+    def prettify(self, prefix="", indent="  ") -> str:
+        result = [
+            f"{prefix}Node #{self.id}, {self.instruction}:",
+            f"{prefix}{indent}Depends:",
+        ]
+        for node, pos in self.depends:
+            result.append(f"{prefix}{indent*2}Node {node.id}, output {pos}")
+        result.append(f"{prefix}{indent}Provides:")
+        for var in self.provides:
+            result.append(f"{prefix}{indent * 2}{var}")
+        return "\n".join(result)
 
 
 @register_optimizer(
@@ -35,187 +73,222 @@ def eliminate_local_common_subexpression(
         known_variable_types: Dict[str, str]
 ) -> BasicBlock:
     lcse_logger.debug("*** START LCSE ***")
-    variable_version: Dict[str, VersionedVariable] = {}
-    # Variable alias -> Variable
+
+    variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]] = {}
+    variable_version: Dict[str, VersionedVariable] = VersionedVariableDict()
     aliases: Dict[VersionedVariable, VersionedVariable] = {}
-    op_cache: Dict[CacheableOp, VersionedVariable] = {}
-    referred: Set[VersionedVariable] = set()
-    generation_1 = []
+    # Intended for those instructions that has only 1 output
+    op_to_node: Dict[CacheableOp, DagNode] = {}
+    dag_nodes: List[DagNode] = []
+
+    ending: Quadruple = None
+    result: List[Quadruple] = []
+
+    tmpi = basic_block.instructions[-1].instruction
     callee = ""
-    if basic_block.instructions[-1].instruction == "__call":
-        callee = basic_block.instructions[-1].src1
+    if tmpi in BASIC_BLOCK_EXITS:
+        ending = basic_block.instructions[-1]
+    if ending and ending.instruction == "__call":
+        callee = ending.src1
 
-    for ir_inst in basic_block.instructions:
-        tmp = shorten(ir_inst, current_function_name, callee,
-                      variable_version, aliases,
-                      op_cache, referred)
-        generation_1.extend(tmp)
-        if len(tmp) == 0:
+    # explicitly building DAG, track variable versions
+    for ir in basic_block.instructions:
+        if ir is ending:
             continue
-        last = tmp[-1]
-        # TODO: asm are block exits, but not every time asm jumps out of current block
-        if last.instruction == "asm":
+        if ir.instruction in BASIC_BLOCK_ENTRANCES or ir.instruction.startswith("decl_"):
+            result.append(ir)
             continue
-    # Reassign to clear variable_version
-    active_variables = variable_version
-    variable_version = {}
-    variable_type: Dict[str, str] = {}
-    generation_2 = []
-    # If some aliases are active till the end, we should perform copy assignment on them
-    lcse_logger.debug(f"active_variables: { {k: v.version for (k, v) in active_variables.items()} }")
-    lcse_logger.debug(f"aliases: {aliases}")
-    for ir_inst in generation_1:
-        if ir_inst.instruction in BASIC_BLOCK_ENTRANCES:
-            generation_2.append(ir_inst)
+        if ir.instruction == "asm":
+            i = len(dag_nodes)
+            new_ir = copy.copy(ir)
+            new_ir.input_vars = []
+            node = DagNode(i, "asm", [], [], [], new_ir)
+            dag_nodes.append(node)
+            for input_var_name in ir.input_vars:
+                true_var = get_variable_true_name(variable_version[input_var_name], aliases)
+                depends_on = find_node_for_variable(true_var, variable_provider, dag_nodes, aliases)
+                # Pending rewriting
+                # new_ir.input_vars.append(true_var.name)
+                node.depends.append(depends_on)
+            for position, output_var_name in enumerate(ir.output_vars):
+                old_output = variable_version[output_var_name]
+                new_output = VersionedVariable(output_var_name, old_output.version + 1)
+                variable_version[output_var_name] = new_output
+                node.provides.append(new_output)
+                variable_provider[new_output] = (node, position)
             continue
-        if ir_inst.dest == "":
-            generation_2.append(ir_inst)
+        old_dest = variable_version[ir.dest]
+        new_dest = VersionedVariable(ir.dest, old_dest.version + 1)
+        # update variable_version[dest] AFTER getting versions
+        if ir.instruction.startswith("set_"):
+            node, output_index = find_node_for_variable(
+                variable_version[ir.src1], variable_provider, dag_nodes, aliases)
+            variable_provider[new_dest] = (node, output_index)
+            variable_version[ir.dest] = new_dest
             continue
-        # TODO: should we prefer writing to global variables?
-        old_dest = get_last_version_of_variable(ir_inst.dest, variable_version)
-        new_dest = VersionedVariable(ir_inst.dest, old_dest.version + 1)
-        tokens = ir_inst.instruction.split("_")
-        if len(tokens) == 2:
-            op_type = tokens[-1]
-            variable_type[ir_inst.dest] = op_type
-        # TODO this can be faster
-        for (cname, body) in aliases.items():
-            if body != old_dest:
-                continue
-            lcse_logger.debug(f"considering alias {cname} -> {body}")
-            lcse_logger.debug(f"1: {tuple(active_variables.keys())}")
-            if cname not in active_variables.keys():
-                lcse_logger.debug(f"dropping {cname}: not active")
-                continue
-            try:
-                operand_type = ir_inst.instruction.split("_")[-1]
-                copy_inst = f"set_{operand_type}"
-                generation_2.append(Quadruple(copy_inst, ir_inst.dest, "", cname))
-            except IndexError:
-                raise ValueError(f"IR instruction {ir_inst.instruction} does NOT have a type, abort copying")
-        generation_2.append(ir_inst)
-        variable_version[ir_inst.dest] = new_dest
 
-    for (name, var) in active_variables.items():
-        if name.startswith("__vtmp_") or name.startswith("___vtmp_"):
-            continue
-        body = aliases.get(var, var)
-        if body.name == name:
-            continue
-        try:
-            body_type = variable_type.get(body.name, None)
-            if body_type is None:
-                body_type = known_variable_types[body.name]
-            generation_2.append(Quadruple(f"set_{body_type}", body.name, "", name))
-        except KeyError:
-            raise ValueError(f"Cannot determine type of {body.name}")
+        src1 = get_variable_true_name(variable_version[ir.src1], aliases)
+        src2 = get_variable_true_name(variable_version[ir.src2], aliases)
+        cacheable_op = CacheableOp(ir.instruction, src1, src2)
+        node = op_to_node.get(cacheable_op)
+        lcse_logger.debug(f"Op {cacheable_op.instruction} {cacheable_op.src1} {cacheable_op.src2}"
+                          f"-> Node {node and node.id}")
+        if node is None:
+            src1_dep = find_node_for_variable(src1, variable_provider, dag_nodes, aliases)
+            src2_dep = find_node_for_variable(src2, variable_provider, dag_nodes, aliases)
+            i = len(dag_nodes)
+            node = DagNode(i, ir.instruction, [src1_dep, src2_dep], [], [new_dest, ])
+            dag_nodes.append(node)
+            variable_provider[new_dest] = (node, 0)
+            op_to_node[cacheable_op] = node
+        else:
+            aliases[new_dest] = node.provides[0]
+        variable_version[ir.dest] = new_dest
 
-    basic_block.instructions = generation_2
+    # This modifies aliases[]
+    reverse_aliases = get_reverse_aliases(variable_version, aliases, callee, True)
+    for node in dag_nodes:
+        p = []
+        for output in node.provides:
+            p.append(get_variable_true_name(output, aliases))
+        node.provides = p
+
+    alive_node_ids = detect_alive_nodes(dag_nodes, variable_version, variable_provider, aliases)
+    in_degrees = initialize_topo_from_node_list(dag_nodes, alive_node_ids)
+    q = deque()
+    # BEGIN topological sort
+    for (node_id, degree) in in_degrees.items():
+        if degree == 0 and node_id in alive_node_ids:
+            q.append(node_id)
+    while len(q) > 0:
+        current_node = dag_nodes[q.popleft()]
+        for rdep in current_node.rdepends:
+            assert isinstance(rdep, DagNode)
+            in_degrees[rdep.id] -= 1
+            if in_degrees[rdep.id] == 0:
+                q.append(rdep.id)
+
+    # END topological sort
+
+    # basic_block.instructions = result + endings
+    # for node in dag_nodes:
+    #     print(node.prettify(), "\n")
+    # print("\n".join([r.dump() for r in result]))
+    # print(ending)
     return basic_block
 
 
-# We need callee,
-def shorten(
-        ir: Quadruple,
-        current_function_name: str,
-        callee: str,
+def find_node_for_variable(
+        variable: VersionedVariable,
+        variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]],
+        dag_nodes: List[DagNode],
+        aliases: Dict[VersionedVariable, VersionedVariable]
+) -> Tuple[DagNode, int]:
+    variable = get_variable_true_name(variable, aliases)
+    provider = variable_provider.get(variable)
+    # Constants, global variables, or something from other basic blocks
+    if provider is None:
+        i = len(dag_nodes)
+        # "": exists before this basic block
+        node = DagNode(i, "", provides=[variable, ])
+        dag_nodes.append(node)
+        variable_provider[variable] = (node, 0)
+        return node, 0
+    steps = 0
+    while provider[0].instruction.startswith("set_") and len(provider[0].depends) > 0:
+        provider = provider.depends[0]
+        steps += 1
+        if steps > 1000000:
+            raise ValueError(f"Too many steps on DAG (while finding {variable})! Is there any cycles?")
+    return provider
+
+
+def get_variable_true_name(
+        variable: VersionedVariable,
+        aliases: Dict[VersionedVariable, VersionedVariable]
+) -> VersionedVariable:
+    if variable not in aliases:
+        return variable
+    aliases[variable] = get_variable_true_name(aliases[variable], aliases)
+    return aliases[variable]
+
+
+def initialize_topo_from_node_list(dag_nodes: List[DagNode], alive_node_ids: Set[int]) -> Dict[int, int]:
+    degree_in: Dict[int, int] = {}
+    for node in dag_nodes:
+        degree_in[node.id] = 0
+        for dep, _ in node.depends:
+            assert isinstance(dep, DagNode)
+            if dep.id not in alive_node_ids:
+                continue
+            degree_in[node.id] += 1
+            dep.rdepends.append(node)
+    return degree_in
+
+
+def detect_alive_nodes(
+        dag_nodes: List[DagNode],
+        variable_version: Dict[str, VersionedVariable],
+        variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]],
+        aliases: Dict[VersionedVariable, VersionedVariable],
+) -> Set[int]:
+    alive_node_ids: Set[int] = set()
+    # Store node IDs. ID -> index in dag_nodes
+    q = deque()
+    for (_, alive_var) in variable_version.items():
+        node, _ = find_node_for_variable(alive_var, variable_provider, dag_nodes, aliases)
+        if node.id in alive_node_ids:
+            continue
+        alive_node_ids.add(node.id)
+        q.append(node.id)
+
+    while len(q) > 0:
+        current_node = dag_nodes[q.popleft()]
+        for (node, _) in current_node.depends:
+            if node.id in alive_node_ids:
+                continue
+            alive_node_ids.add(node.id)
+            q.append(node.id)
+    return alive_node_ids
+
+
+def get_reverse_aliases(
         variable_version: Dict[str, VersionedVariable],
         aliases: Dict[VersionedVariable, VersionedVariable],
-        op_cache: Dict[CacheableOp, VersionedVariable],
-        referred: Set[VersionedVariable]
-) -> List[Quadruple]:
-    result_instructions: List[Quadruple] = []
-    # BASIC_BLOCK_ENTRANCES don't create or modify variables
-    if ir.instruction in BASIC_BLOCK_ENTRANCES:
-        return [ir, ]
-    if ir.instruction in ("goto", "__funcend"):
-        return [ir, ]
-    lcse_logger.debug(f"shorten(): handling ir: {ir.dump()}")
-    if ir.instruction == "asm":
-        new_input_vars = []
-        for var in ir.input_vars:
-            last_src = get_last_version_of_variable(var, variable_version)
-            optimized_src = aliases.get(last_src, last_src)
-            referred.add(optimized_src)
-            new_input_vars.append(optimized_src.name)
-        lcse_logger.debug(f"ASM input before: {ir.input_vars}")
-        lcse_logger.debug(f"ASM input now: {new_input_vars}")
-        ir.input_vars = new_input_vars
-        return [ir, ]
+        callee: str,
+        adjustment_desired = False
+) -> Dict[VersionedVariable, Set[VersionedVariable]]:
+    # TODO: rewrite DagNode.provides
+    def evaluate_weight(var: VersionedVariable) -> int:
+        weight = 0
+        if not var.name.startswith("__vtmp_") and not var.name.startswith("___vtmp_"):
+            weight += 1
+        if variable_version[var.name] == var:
+            weight += 2
+        if "@" not in var.name:
+            # global variables
+            weight += 4
+        if "@" in var.name and var.name.split("@")[-1] == callee:
+            weight += 8
+        return weight
 
-    if ir.src1 and ir.src1_type == "variable":
-        referred.add(get_last_version_of_variable(ir.src1, variable_version))
-    if ir.src2 and ir.src2_type == "variable":
-        referred.add(get_last_version_of_variable(ir.src2, variable_version))
+    alias_group: Dict[VersionedVariable, Set[VersionedVariable]] = defaultdict(set)
+    for (derived, base) in aliases.items():
+        alias_group[base].add(get_variable_true_name(derived, aliases))
+    if not adjustment_desired:
+        return alias_group
 
-    if ir.instruction.startswith("set"):
-        # Can we alias this or actually assign/copy it?
-        # For global variables and function arguments: no
-        if ir.src1_type != "variable" or should_keep_this_assignment(ir.dest, callee):
-            return [ir, ]
-        # It's safe to eliminate this set_(some type)
-        old_dest = variable_version.get(ir.dest, VersionedVariable(ir.dest, 0))
-        new_dest = VersionedVariable(ir.dest, old_dest.version + 1)
-        src = get_last_version_of_variable(ir.src1, variable_version)
-        lcse_logger.debug(f"alias {new_dest} = {src} created")
-        variable_version[ir.dest] = new_dest
-        aliases[new_dest] = src
-        # add_alias(src, new_dest, aliases, variable_known_aliases)
-        return result_instructions
+    for (old_base, candidates) in alias_group.items():
+        best_base = max(old_base, *candidates, key=evaluate_weight)
+        if best_base == old_base:
+            continue
+        aliases[old_base] = best_base
+        for candidate in candidates:
+            aliases[candidate] = best_base
+        if best_base in aliases.keys():
+            del aliases[best_base]
 
-    src1 = get_last_version_of_variable(ir.src1, variable_version)
-    src2 = get_last_version_of_variable(ir.src2, variable_version)
-    lcse_logger.debug(f"alias of {src1} is {aliases.get(src1)}")
-    lcse_logger.debug(f"alias of {src2} is {aliases.get(src2)}")
-    src1 = aliases.get(src1, src1)
-    src2 = aliases.get(src2, src2)
-    old_dest = variable_version.get(ir.dest, VersionedVariable(ir.dest, 0))
-    current_op = CacheableOp(ir.instruction, src1, src2)
-    lcse_logger.debug(f"old_dest = {old_dest}")
-    lcse_logger.debug(f"current_op = {current_op}")
-    if current_op in op_cache.keys():
-        lcse_logger.debug(f"HIT op cache, creating alias {old_dest} = {op_cache[current_op]}")
-        aliases[old_dest] = op_cache[current_op]
-        # We will assign this later
-        if should_keep_this_assignment(old_dest.name, callee):
-            variable_version[old_dest.name] = old_dest
-        # add_alias(op_cache[current_op], old_dest, aliases, variable_known_aliases)
-    else:
-        ir.src1 = src1.name
-        ir.src2 = src2.name
-        result_instructions.append(ir)
-        new_dest = VersionedVariable(ir.dest, old_dest.version + 1)
-        variable_version[ir.dest] = new_dest
-        op_cache[current_op] = new_dest
-    return result_instructions
-
-
-# begin util functions
-def get_last_version_of_variable(name: str, variable_version: Dict[str, VersionedVariable]) -> VersionedVariable:
-    return variable_version.get(name, VersionedVariable(name, 0))
-
-
-def should_keep_this_assignment(dest_name: str, callee: str):
-    lcse_logger.debug(f"deciding {dest_name}")
-    if "@" not in dest_name:
-        lcse_logger.debug(f"keep assignment of {dest_name}: global variables")
-        return True
-    tokens = dest_name.split("@")
-    if tokens[-1] == callee:
-        lcse_logger.debug(f"keep assignment of {dest_name}: involved in function call")
-        return True
-    return False
-
-
-def add_alias(
-        base: VersionedVariable,
-        alias: VersionedVariable,
-        aliases: Dict[VersionedVariable, VersionedVariable],
-        variable_known_aliases: Dict[VersionedVariable, List[VersionedVariable]]
-) -> None:
-    aliases[alias] = base
-    if base in variable_known_aliases.keys():
-        variable_known_aliases[base].append(alias)
-    else:
-        variable_known_aliases[base] = [alias, ]
-# end util functions
+    alias_group = defaultdict(set)
+    for (derived, base) in aliases.items():
+        alias_group[base].add(get_variable_true_name(derived, aliases))
+    return alias_group
