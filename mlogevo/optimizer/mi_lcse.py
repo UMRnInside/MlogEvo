@@ -30,8 +30,6 @@ class CacheableOp(NamedTuple):
     instruction: str
     src1: VersionedVariable
     src2: VersionedVariable
-    # Do we need this?
-    # dest: VersionedVariable
 
 
 @dataclass
@@ -260,20 +258,20 @@ def get_reverse_aliases(
     # TODO: rewrite DagNode.provides
     def evaluate_weight(var: VersionedVariable) -> int:
         weight = 0
-        if not var.name.startswith("__vtmp_") and not var.name.startswith("___vtmp_"):
+        if var.name.startswith("__vtmp_") or var.name.startswith("___vtmp_"):
             weight += 1
         if variable_version[var.name] == var:
             weight += 2
         if "@" not in var.name:
             # global variables
-            weight += 4
+            weight -= 4
         if "@" in var.name and var.name.split("@")[-1] == callee:
             weight += 8
         return weight
 
     alias_group: Dict[VersionedVariable, Set[VersionedVariable]] = defaultdict(set)
     for (derived, base) in aliases.items():
-        alias_group[base].add(get_variable_true_name(derived, aliases))
+        alias_group[get_variable_true_name(base, aliases)].add(derived)
     if not adjustment_desired:
         return alias_group
 
@@ -289,5 +287,5 @@ def get_reverse_aliases(
 
     alias_group = defaultdict(set)
     for (derived, base) in aliases.items():
-        alias_group[base].add(get_variable_true_name(derived, aliases))
+        alias_group[get_variable_true_name(base, aliases)].add(derived)
     return alias_group
