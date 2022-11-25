@@ -53,6 +53,8 @@ class DagNode:
         result.append(f"{prefix}{indent}Provides:")
         for var in self.provides:
             result.append(f"{prefix}{indent * 2}{var}")
+        rl = [x.id for x in self.rdepends]
+        result.append(f"{prefix}{indent}Used by: {rl}")
         return "\n".join(result)
 
 
@@ -70,6 +72,8 @@ def eliminate_local_common_subexpression(
         known_variable_types: Dict[str, str]
 ) -> BasicBlock:
     lcse_logger.debug("*** START LCSE ***")
+    lcse_logger.debug("basic block content:")
+    lcse_logger.debug("\n".join([v.dump() for v in basic_block.instructions]))
 
     variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]] = {}
     variable_version: Dict[str, VersionedVariable] = VersionedVariableDict()
@@ -79,6 +83,7 @@ def eliminate_local_common_subexpression(
     dag_nodes: List[DagNode] = []
 
     ending: Quadruple = None
+    ending_node: DagNode = None
     result: List[Quadruple] = []
 
     tmpi = basic_block.instructions[-1].instruction
@@ -90,16 +95,15 @@ def eliminate_local_common_subexpression(
 
     # explicitly building DAG, track variable versions
     for ir in basic_block.instructions:
-        if ir is ending:
-            continue
         if ir.instruction in BASIC_BLOCK_ENTRANCES or ir.instruction.startswith("decl_"):
             result.append(ir)
             continue
-        if ir.instruction == "asm":
+        ir.update_types()
+        if ir.instruction in ("asm", "asm_volatile"):
             i = len(dag_nodes)
             new_ir = copy.copy(ir)
             new_ir.input_vars = []
-            node = DagNode(i, "asm", [], [], [], new_ir)
+            node = DagNode(i, ir.instruction, [], [], [], new_ir)
             dag_nodes.append(node)
             for input_var_name in ir.input_vars:
                 true_var = get_variable_true_name(variable_version[input_var_name], aliases)
@@ -118,9 +122,19 @@ def eliminate_local_common_subexpression(
         new_dest = VersionedVariable(ir.dest, old_dest.version + 1)
         # update variable_version[dest] AFTER getting versions
         if ir.instruction.startswith("set_"):
+            lcse_logger.debug(f"Op {ir.instruction} {ir.src1} {ir.dest}")
             node, output_index = find_node_for_variable(
                 variable_version[ir.src1], variable_provider, dag_nodes, aliases)
-            variable_provider[new_dest] = (node, output_index)
+            if ir.src1_type == "variable":
+                # TODO this causes bug
+                lcse_logger.debug(f"provider of {new_dest} is Node {node.id} Output {output_index}")
+                variable_provider[new_dest] = (node, output_index)
+                aliases[new_dest] = node.provides[output_index]
+            else:
+                i = len(dag_nodes)
+                node = DagNode(i, ir.instruction, [(node, output_index), ], [], [new_dest, ], ir)
+                dag_nodes.append(node)
+                variable_provider[new_dest] = (node, 0)
             variable_version[ir.dest] = new_dest
             continue
 
@@ -131,34 +145,64 @@ def eliminate_local_common_subexpression(
         lcse_logger.debug(f"Op {cacheable_op.instruction} {cacheable_op.src1} {cacheable_op.src2}"
                           f"-> Node {node and node.id}")
         if node is None:
-            src1_dep = find_node_for_variable(src1, variable_provider, dag_nodes, aliases)
-            src2_dep = find_node_for_variable(src2, variable_provider, dag_nodes, aliases)
+            deps = []
+            if ir.src1_type != "":
+                src1_dep = find_node_for_variable(src1, variable_provider, dag_nodes, aliases)
+                deps.append(src1_dep)
+            if ir.src2_type != "":
+                src2_dep = find_node_for_variable(src2, variable_provider, dag_nodes, aliases)
+                deps.append(src2_dep)
             i = len(dag_nodes)
-            node = DagNode(i, ir.instruction, [src1_dep, src2_dep], [], [new_dest, ])
+            node = DagNode(i, ir.instruction, deps, [], [new_dest, ], ir)
             dag_nodes.append(node)
             variable_provider[new_dest] = (node, 0)
             op_to_node[cacheable_op] = node
         else:
             aliases[new_dest] = node.provides[0]
+        # Uncomment these if we do `lazy fulfill` on variable aliases
+        # old_provider = find_node_for_variable(old_dest, variable_provider, dag_nodes, aliases)[0]
+        # old_provider.rdepends.append(node)
         variable_version[ir.dest] = new_dest
+        if ir is ending:
+            ending_node = node
 
+    # make sure ending node appears AFTER all other nodes
+    # in topological order
+    if ending_node is not None:
+        for node in dag_nodes:
+            if node is ending_node:
+                continue
+            node.rdepends.append(ending_node)
     # This modifies aliases[]
-    reverse_aliases = get_reverse_aliases(variable_version, aliases, callee, True)
+    # TODO: should we adjust aliases?
+    reverse_aliases = get_reverse_aliases(variable_version, aliases, callee, False)
     for node in dag_nodes:
         p = []
         for output in node.provides:
             p.append(get_variable_true_name(output, aliases))
         node.provides = p
 
-    alive_node_ids = detect_alive_nodes(dag_nodes, variable_version, variable_provider, aliases)
-    in_degrees = initialize_topo_from_node_list(dag_nodes, alive_node_ids)
+    active_node_ids = detect_active_nodes(dag_nodes, variable_version, variable_provider, aliases)
+    in_degrees = initialize_topo_from_node_list(dag_nodes, active_node_ids)
     q = deque()
+    lcse_logger.debug(f"active variables: { {k: v.version for (k, v) in variable_version.items()} }")
+    lcse_logger.debug(f"active nodes: {active_node_ids}")
+    lcse_logger.debug(f"ending node: {ending_node}")
     # BEGIN topological sort
+    for node in dag_nodes:
+        lcse_logger.debug("\n"+node.prettify())
     for (node_id, degree) in in_degrees.items():
-        if degree == 0 and node_id in alive_node_ids:
+        if degree == 0 and node_id in active_node_ids:
             q.append(node_id)
+    lcse_logger.debug(f"initial Toposort queue: {q}")
+    lcse_logger.debug(f"in_degrees: {in_degrees}")
     while len(q) > 0:
         current_node = dag_nodes[q.popleft()]
+        lcse_logger.debug(f"toposort on node {current_node.id}")
+        tmpl = regenerate_instructions_from_node(current_node, variable_version, reverse_aliases, known_variable_types)
+        lcse_logger.debug(f"this regenerates:")
+        lcse_logger.debug("\n".join([v.dump() for v in tmpl]))
+        result.extend(tmpl)
         for rdep in current_node.rdepends:
             assert isinstance(rdep, DagNode)
             in_degrees[rdep.id] -= 1
@@ -166,12 +210,15 @@ def eliminate_local_common_subexpression(
                 q.append(rdep.id)
 
     # END topological sort
+    # Now we handle ending
 
-    # basic_block.instructions = result + endings
+
     # for node in dag_nodes:
     #     print(node.prettify(), "\n")
     # print("\n".join([r.dump() for r in result]))
     # print(ending)
+    # lcse_logger.debug(result)
+    basic_block.instructions = result
     return basic_block
 
 
@@ -179,7 +226,8 @@ def find_node_for_variable(
         variable: VersionedVariable,
         variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]],
         dag_nodes: List[DagNode],
-        aliases: Dict[VersionedVariable, VersionedVariable]
+        aliases: Dict[VersionedVariable, VersionedVariable],
+        track_set_instructions=False
 ) -> Tuple[DagNode, int]:
     variable = get_variable_true_name(variable, aliases)
     provider = variable_provider.get(variable)
@@ -191,12 +239,21 @@ def find_node_for_variable(
         dag_nodes.append(node)
         variable_provider[variable] = (node, 0)
         return node, 0
+    if not track_set_instructions:
+        return provider
+
     steps = 0
-    while provider[0].instruction.startswith("set_") and len(provider[0].depends) > 0:
-        provider = provider.depends[0]
+    last = provider
+    set_instruction = provider[0].instruction
+    while provider[0].instruction == set_instruction and len(provider[0].depends) > 0:
+        last = provider
+        provider = provider[0].depends[0]
         steps += 1
         if steps > 1000000:
             raise ValueError(f"Too many steps on DAG (while finding {variable})! Is there any cycles?")
+    # do not track to constant nodes
+    if provider[0].instruction == "":
+        return last
     return provider
 
 
@@ -214,39 +271,49 @@ def initialize_topo_from_node_list(dag_nodes: List[DagNode], alive_node_ids: Set
     degree_in: Dict[int, int] = {}
     for node in dag_nodes:
         degree_in[node.id] = 0
+        if node.id not in alive_node_ids:
+            continue
         for dep, _ in node.depends:
             assert isinstance(dep, DagNode)
             if dep.id not in alive_node_ids:
                 continue
-            degree_in[node.id] += 1
             dep.rdepends.append(node)
+    for node in dag_nodes:
+        if node.id not in alive_node_ids:
+            continue
+        for rdep in node.rdepends:
+            if rdep.id not in alive_node_ids:
+                continue
+            degree_in[rdep.id] += 1
     return degree_in
 
 
-def detect_alive_nodes(
+def detect_active_nodes(
         dag_nodes: List[DagNode],
         variable_version: Dict[str, VersionedVariable],
         variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]],
         aliases: Dict[VersionedVariable, VersionedVariable],
 ) -> Set[int]:
-    alive_node_ids: Set[int] = set()
+    active_node_ids: Set[int] = set()
     # Store node IDs. ID -> index in dag_nodes
     q = deque()
-    for (_, alive_var) in variable_version.items():
-        node, _ = find_node_for_variable(alive_var, variable_provider, dag_nodes, aliases)
-        if node.id in alive_node_ids:
+    for (_, active_var) in variable_version.items():
+        node, _ = find_node_for_variable(active_var, variable_provider, dag_nodes, aliases)
+        lcse_logger.debug(f"active variable {active_var} resolved to {get_variable_true_name(active_var, aliases)}")
+        lcse_logger.debug(f"active variable {active_var} is from node {node.id}")
+        if node.id in active_node_ids:
             continue
-        alive_node_ids.add(node.id)
+        active_node_ids.add(node.id)
         q.append(node.id)
 
     while len(q) > 0:
         current_node = dag_nodes[q.popleft()]
         for (node, _) in current_node.depends:
-            if node.id in alive_node_ids:
+            if node.id in active_node_ids:
                 continue
-            alive_node_ids.add(node.id)
+            active_node_ids.add(node.id)
             q.append(node.id)
-    return alive_node_ids
+    return active_node_ids
 
 
 def get_reverse_aliases(
@@ -255,18 +322,23 @@ def get_reverse_aliases(
         callee: str,
         adjustment_desired = False
 ) -> Dict[VersionedVariable, Set[VersionedVariable]]:
-    # TODO: rewrite DagNode.provides
+
     def evaluate_weight(var: VersionedVariable) -> int:
         weight = 0
         if var.name.startswith("__vtmp_") or var.name.startswith("___vtmp_"):
-            weight += 1
+            # Should we prefer temp variables?
+            weight -= 1
         if variable_version[var.name] == var:
-            weight += 2
+            weight += 8
+        else:
+            weight -= 8
+
         if "@" not in var.name:
             # global variables
-            weight -= 4
+            weight += 4
         if "@" in var.name and var.name.split("@")[-1] == callee:
-            weight += 8
+            # NOTE: this depends on `__call` being basic block exits
+            weight += 2
         return weight
 
     alias_group: Dict[VersionedVariable, Set[VersionedVariable]] = defaultdict(set)
@@ -289,3 +361,88 @@ def get_reverse_aliases(
     for (derived, base) in aliases.items():
         alias_group[get_variable_true_name(base, aliases)].add(derived)
     return alias_group
+
+
+def write_active_aliases(
+        base: VersionedVariable,
+        var_type: str,
+        alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
+        final_variable_version: Dict[str, VersionedVariable],
+) -> List[Quadruple]:
+    if len(base.name) == 0 or var_type is None:
+        return []
+    result = []
+    for derived in alias_group[base]:
+        if final_variable_version[derived.name] == derived:
+            lcse_logger.debug(f"write_active_aliases: {base} -> {derived}")
+            result.append(Quadruple(f"set_{var_type}", src1=base.name, dest=derived.name))
+    return result
+
+
+def regenerate_instructions_from_node(
+        node: DagNode,
+        variable_version: Dict[str, VersionedVariable],
+        alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
+        known_variable_types: Dict[str, str]
+) -> List[Quadruple]:
+    # Empty / constant nodes
+    if node.instruction == "":
+        return []
+    result: List[Quadruple] = []
+    alias_fillers: List[Quadruple] = []
+
+    input_vars = []
+    # Shared between ASM blocks and normal instructions
+    for src_node, src_index in node.depends:
+        input_vars.append(src_node.provides[src_index].name)
+
+    if node.instruction in ("asm", "asm_volatile"):
+        ir = node.original_ir
+        for versioned_var in node.provides:
+            old_var = VersionedVariable(versioned_var.name, versioned_var.version - 1)
+            if old_var.version <= 0:
+                tmpl = write_active_aliases(
+                    old_var, known_variable_types.get(old_var.name), alias_group, variable_version
+                )
+                result.extend(tmpl)
+            if versioned_var.version >= 1:
+                tmpl = write_active_aliases(
+                    versioned_var, known_variable_types.get(versioned_var.name), alias_group, variable_version
+                )
+                alias_fillers.extend(tmpl)
+        ir.input_vars = input_vars
+        result.append(ir)
+        return result + alias_fillers
+    if node.instruction in ("if", "ifnot"):
+        ir = copy.copy(node.original_ir)
+        src1, src2 = input_vars[0:2]
+        result.append(ir)
+        return result
+
+    # Now we only have 1 output
+    current_dest = node.provides[0]
+    old_dest = VersionedVariable(current_dest.name, current_dest.version - 1)
+    if old_dest.version <= 0:
+        tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name), alias_group, variable_version)
+        result.extend(tmpl)
+    if current_dest.version >= 1:
+        tmpl = write_active_aliases(
+            current_dest, known_variable_types.get(current_dest.name), alias_group, variable_version
+        )
+        alias_fillers.extend(tmpl)
+
+    if node.instruction in I1O1_INSTRUCTIONS:
+        src1 = input_vars[0]
+        ir = Quadruple(node.instruction, src1, "", current_dest.name)
+        result.append(ir)
+    elif node.instruction in I2O1_INSTRUCTIONS:
+        src1, src2 = input_vars[0:2]
+        ir = Quadruple(node.instruction, src1, src2, current_dest.name)
+        result.append(ir)
+    elif node.instruction in BASIC_BLOCK_EXITS:
+        # BASIC_BLOCK_EXITS does not write to variables
+        # they set `@counter` instead
+        return [node.original_ir, ]
+    else:
+        raise ValueError(f"Unhandled DAG instruction: {node.instruction}")
+    return result + alias_fillers

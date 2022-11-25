@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List
+import re
 
 SUPPORTED_ARITHMETIC_TYPES = {
     "i32", "f64",
@@ -66,12 +67,14 @@ for i in I32ONLY_I1O1_ITEMS:
 for i in I32ONLY_I2O1_ITEMS:
     I2O1_INSTRUCTIONS.add(f"{i}_i32")
 
+variable_pattern = re.compile(r'^[A-Za-z_@][_@()\[\]\w]+')
+
 
 def test_parameter_type(param: str) -> str:
     """Test a parameter if it's a "immediate_integer", "immediate_float", "variable" or "invalid" """
     if type(param) is not str or len(param) == 0:
         return "invalid"
-    if param[0].isalpha() or param[0] == '_':
+    if variable_pattern.match(param):
         return "variable"
 
     # Test if param is base 10 or 16
@@ -120,6 +123,9 @@ class Quadruple:
     raw_instructions: List[str] = field(default_factory=list)
 
     def __post_init__(self):
+        self.update_types()
+
+    def update_types(self):
         self.src1_type = test_parameter_type(self.src1)
         self.src2_type = test_parameter_type(self.src2)
 
