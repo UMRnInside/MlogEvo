@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 mlogevo = __import__("mlogevo")
 mlogevo_main = __import__("mlogevo.__main__").__main__.main
 module_abspath = os.path.abspath(os.path.dirname(__file__))
-run_limit = 100000000
+run_limit = 1000000
 
 
 def parse_expected_results(filename: str) -> dict:
