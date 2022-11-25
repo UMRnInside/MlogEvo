@@ -373,6 +373,9 @@ def write_active_aliases(
         return []
     result = []
     for derived in alias_group[base]:
+        if derived.name.startswith("___vtmp_"):
+            # TODO: cross-block variable references?
+            continue
         if final_variable_version[derived.name] == derived:
             lcse_logger.debug(f"write_active_aliases: {base} -> {derived}")
             result.append(Quadruple(f"set_{var_type}", src1=base.name, dest=derived.name))
