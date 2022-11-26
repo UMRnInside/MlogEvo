@@ -17,6 +17,7 @@ from pycparserext_gnuc.ext_c_parser import GnuCParser, \
 
 from ..intermediate import Quadruple
 from ..intermediate.function import Function
+from .compilation_error import CompilationError
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
     choose_set_instruction, \
@@ -137,12 +138,18 @@ class Compiler(NodeVisitor):
         raw_name = decorated_name[1:first_at]
         self.current_function.local_vars.pop(raw_name, None)
 
-    def get_variable(self, var_name) -> tuple:
+    def get_variable(self, var_name, coord) -> tuple:
         result = None
         if self.current_function is not None:
             result = self.current_function.local_vars.get(var_name, None)
         if result is None:
             result = self.globals.get(var_name, None)
+        if result is None:
+            # TODO
+            raise CompilationError(
+                reason=f"Variable {var_name} not found (or referred before declaration)",
+                coord = coord
+            )
         return result, self.decorate_variable(var_name)
 
     def declare_variable(self, var_name, var_type):
@@ -290,7 +297,7 @@ class Compiler(NodeVisitor):
 
     def visit_Assignment(self, node):
         # lvalue_decorated = self.decorate_variable(node.lvalue.name)
-        lvalue_typedecl, lvalue_decorated = self.get_variable(node.lvalue.name)
+        lvalue_typedecl, lvalue_decorated = self.get_variable(node.lvalue.name, node.coord)
         rvalue_typedecl, rvalue = self.visit(node.rvalue)
         # print("Assign", node.lvalue, node.op, node.rvalue)
         if node.op == "=":
@@ -325,7 +332,7 @@ class Compiler(NodeVisitor):
                 and node.name == "__mlogev_function_return_value__":
             return self.current_function.result_type, f"result@{self.current_function.name}"
         # decorated_name = self.decorate_variable(node.name)
-        var_typedecl, decorated_name = self.get_variable(node.name)
+        var_typedecl, decorated_name = self.get_variable(node.name, node.coord)
         return var_typedecl, decorated_name
 
     def visit_Cast(self, node):

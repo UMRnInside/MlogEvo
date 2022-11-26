@@ -2,8 +2,9 @@ import argparse
 import sys
 import logging
 
-from .frontend import Compiler
+from .frontend import Compiler, CompilationError
 from .backend import make_backend, ARCH_ID
+from typing import Tuple
 
 parser = argparse.ArgumentParser(prog="mlogevo")
 parser.add_argument("source_file", type=str, nargs='?', default='')
@@ -76,12 +77,23 @@ def main(argv=None):
         machine_independents=args.f or [],
         optimize_level=args.O,
     )
-
-    frontend_result = frontend.compile(
+    frontend_result: Tuple = ()
+    try:
+        frontend_result = frontend.compile(
             args.source_file,
             use_cpp=args.skip_preprocess,
             cpp_args=cpp_args
-    )
+        )
+    except CompilationError as exception:
+        error_info = exception.error_info
+        reason = error_info.get("reason")
+        optional_coord = error_info.get("coord", "")
+        if reason is not None:
+            print(f"{optional_coord or args.source_file}: error: {reason}", file=sys.stderr)
+            exit(1)
+        else:
+            raise exception
+
     result = backend.compile(frontend_result, dump_blocks=args.print_basic_blocks)
     if args.output == '-':
         print(result)

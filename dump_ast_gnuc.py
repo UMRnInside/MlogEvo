@@ -24,7 +24,7 @@ if __name__ == "__main__":
                            action='store_true')
     args = argparser.parse_args()
 
-    ast = parse_file(args.filename, use_cpp=False, parser=GnuCParser())
+    ast = parse_file(args.filename, use_cpp=True, parser=GnuCParser())
     ast.show(showcoord=args.coord)
     # print(ast.ext[0].decl.quals)
     # print(ast.ext[0].decl.funcspec)
