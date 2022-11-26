@@ -117,6 +117,8 @@ def eliminate_local_common_subexpression(
                 variable_version[output_var_name] = new_output
                 node.provides.append(new_output)
                 variable_provider[new_output] = (node, position)
+            if ir is ending:
+                ending_node = node
             continue
         old_dest = variable_version[ir.dest]
         new_dest = VersionedVariable(ir.dest, old_dest.version + 1)
@@ -182,7 +184,7 @@ def eliminate_local_common_subexpression(
             p.append(get_variable_true_name(output, aliases))
         node.provides = p
 
-    active_node_ids = detect_active_nodes(dag_nodes, variable_version, variable_provider, aliases)
+    active_node_ids = detect_active_nodes(dag_nodes, variable_version, variable_provider, aliases, ending_node)
     in_degrees = initialize_topo_from_node_list(dag_nodes, active_node_ids)
     q = deque()
     lcse_logger.debug(f"active variables: { {k: v.version for (k, v) in variable_version.items()} }")
@@ -293,10 +295,14 @@ def detect_active_nodes(
         variable_version: Dict[str, VersionedVariable],
         variable_provider: Dict[VersionedVariable, Tuple[DagNode, int]],
         aliases: Dict[VersionedVariable, VersionedVariable],
+        required_node: DagNode
 ) -> Set[int]:
     active_node_ids: Set[int] = set()
     # Store node IDs. ID -> index in dag_nodes
     q = deque()
+    if required_node is not None:
+        q.append(required_node.id)
+        active_node_ids.add(required_node.id)
     for (_, active_var) in variable_version.items():
         node, _ = find_node_for_variable(active_var, variable_provider, dag_nodes, aliases)
         lcse_logger.debug(f"active variable {active_var} resolved to {get_variable_true_name(active_var, aliases)}")
