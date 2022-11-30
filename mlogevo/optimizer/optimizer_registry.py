@@ -21,7 +21,7 @@ mi_flags_per_level = (
 def register_optimizer(name, target, is_machine_dependent, rank=999, optimize_level=4):
     """name: in command line, -fremove-unused-labels <-> remove-unused-labels
 target: function, basic_block, basic_block_graph
-rank: the lower rank is, the earlier it executes (upon the same target)
+rank: the lower rank is, the earlier it executes
     """
     def decorator(func):
         def wrapper(*args, **kwargs):

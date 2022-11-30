@@ -8,6 +8,7 @@ This module also provides append_optimizers() function
 """
 # Import mi_ and md_ first to register optimizers
 # optimizer functions are decorated by @register_optimizer
+from typing import List, Dict
 from . import mi_deduplicate_tail_return
 from . import mi_remove_unused_labels
 from . import mi_lcse
@@ -18,11 +19,7 @@ from .optimizer_registry import \
     md_flags_per_level, mi_flags_per_level
 
 
-def _take_key_1(t):
-    return t[1]
-
-
-def _make_optimizers(choices, optimizers, options):
+def _make_optimizers(choices: List, optimizers: Dict, options: List):
     excluded = set()
     for option in options:
         if option.startswith("no-"):
@@ -33,7 +30,7 @@ def _make_optimizers(choices, optimizers, options):
                 continue
             triplet = optimizers[option]
             # name: (function, target, rank)
-            choices[triplet[1]].append((triplet[0], triplet[2]))
+            choices.append(triplet)
     return choices
 
 
@@ -48,24 +45,15 @@ def _get_flags_by_level(src, flags_per_level, level=0):
 def append_optimizers(backend, machine_dependents, machine_independents, level=0):
     """Automatically append optimizers to Backend object """
     # TODO: what are they?
-    md_optimizers = {
-    }
-
-    mi_optimizers = {
-        "function": [],
-        "basic_block": [],
-        "basic_block_graph": [],
-    }
+    md_optimizers = []
+    mi_optimizers = []
 
     md_flags = _get_flags_by_level(machine_dependents, md_flags_per_level, level)
     mi_flags = _get_flags_by_level(machine_independents, mi_flags_per_level, level)
-    # TODO: machine-dependant optimizers
+    # TODO: machine-dependent optimizers
     _make_optimizers(md_optimizers, machine_dependent_optimizers, md_flags)
     _make_optimizers(mi_optimizers, machine_independent_optimizers, mi_flags)
 
-    for li in mi_optimizers.values():
-        li.sort(key=_take_key_1)
-
-    backend.function_optimizers = [t[0] for t in mi_optimizers["function"]]
-    backend.basic_block_optimizers = [t[0] for t in mi_optimizers["basic_block"]]
-    backend.block_graph_optimizers = [t[0] for t in mi_optimizers["basic_block_graph"]]
+    # md_optimizers.sort(key=lambda triplet: triplet[2])
+    mi_optimizers.sort(key=lambda triplet: triplet[2])
+    backend.mi_optimizers = mi_optimizers

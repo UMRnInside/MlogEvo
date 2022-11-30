@@ -69,7 +69,8 @@ def eliminate_local_common_subexpression(
         basic_block: BasicBlock,
         current_function_name: str,
         functions: Dict,
-        known_variable_types: Dict[str, str]
+        known_variable_types: Dict[str, str],
+        temp_vars_used_later: Set[str]
 ) -> BasicBlock:
     lcse_logger.debug("*** START LCSE ***")
     lcse_logger.debug("basic block content:")
@@ -201,7 +202,8 @@ def eliminate_local_common_subexpression(
     while len(q) > 0:
         current_node = dag_nodes[q.popleft()]
         lcse_logger.debug(f"toposort on node {current_node.id}")
-        tmpl = regenerate_instructions_from_node(current_node, variable_version, reverse_aliases, known_variable_types)
+        tmpl = regenerate_instructions_from_node(current_node, variable_version, reverse_aliases,
+                                                 known_variable_types, temp_vars_used_later)
         lcse_logger.debug(f"this regenerates:")
         lcse_logger.debug("\n".join([v.dump() for v in tmpl]))
         result.extend(tmpl)
@@ -374,12 +376,13 @@ def write_active_aliases(
         var_type: str,
         alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
         final_variable_version: Dict[str, VersionedVariable],
+        wanted_temp_vars: Set[str]
 ) -> List[Quadruple]:
     if len(base.name) == 0 or var_type is None:
         return []
     result = []
     for derived in alias_group[base]:
-        if derived.name.startswith("___vtmp_"):
+        if derived.name.startswith("___vtmp_") and derived.name not in wanted_temp_vars:
             # TODO: cross-block variable references?
             continue
         if final_variable_version[derived.name] == derived:
@@ -392,7 +395,8 @@ def regenerate_instructions_from_node(
         node: DagNode,
         variable_version: Dict[str, VersionedVariable],
         alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
-        known_variable_types: Dict[str, str]
+        known_variable_types: Dict[str, str],
+        wanted_temp_vars: Set[str]
 ) -> List[Quadruple]:
     # Empty / constant nodes
     if node.instruction == "":
@@ -411,12 +415,14 @@ def regenerate_instructions_from_node(
             old_var = VersionedVariable(versioned_var.name, versioned_var.version - 1)
             if old_var.version <= 0:
                 tmpl = write_active_aliases(
-                    old_var, known_variable_types.get(old_var.name), alias_group, variable_version
+                    old_var, known_variable_types.get(old_var.name),
+                    alias_group, variable_version, wanted_temp_vars
                 )
                 result.extend(tmpl)
             if versioned_var.version >= 1:
                 tmpl = write_active_aliases(
-                    versioned_var, known_variable_types.get(versioned_var.name), alias_group, variable_version
+                    versioned_var, known_variable_types.get(versioned_var.name),
+                    alias_group, variable_version, wanted_temp_vars
                 )
                 alias_fillers.extend(tmpl)
         ir.input_vars = input_vars
@@ -432,11 +438,13 @@ def regenerate_instructions_from_node(
     current_dest = node.provides[0]
     old_dest = VersionedVariable(current_dest.name, current_dest.version - 1)
     if old_dest.version <= 0:
-        tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name), alias_group, variable_version)
+        tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name),
+                                    alias_group, variable_version, wanted_temp_vars)
         result.extend(tmpl)
     if current_dest.version >= 1:
         tmpl = write_active_aliases(
-            current_dest, known_variable_types.get(current_dest.name), alias_group, variable_version
+            current_dest, known_variable_types.get(current_dest.name),
+            alias_group, variable_version, wanted_temp_vars
         )
         alias_fillers.extend(tmpl)
 

@@ -1,4 +1,4 @@
-from typing import Iterable, Dict
+from typing import Iterable, Dict, Set
 from ..intermediate.ir_quadruple import Quadruple, COMPARISONS
 from ..intermediate.function import Function
 from ..output import AbstractIRConverter
@@ -36,12 +36,25 @@ def read_variable_types(ir_list: Iterable[Quadruple], result: Dict[str, str]):
         result[ir.dest] = tokens[-1]
 
 
+def read_referred_temp_vars(ir_list: Iterable[Quadruple]) -> Set[str]:
+    def is_temp_variable(name: str):
+        return name.startswith("___vtmp_") or name.startswith("__vtmp_")
+
+    temp_variables = set()
+    for ir in ir_list:
+        if is_temp_variable(ir.src1):
+            temp_variables.add(ir.src1)
+        if is_temp_variable(ir.src2):
+            temp_variables.add(ir.src2)
+        for var in filter(is_temp_variable, ir.input_vars):
+            temp_variables.add(var)
+    return temp_variables
+
+
 class Backend:
     def __init__(self):
         # function_optimizers: work on the whole function
-        self.function_optimizers = []
-        self.basic_block_optimizers = []
-        self.block_graph_optimizers = []
+        self.mi_optimizers = []
         self.asm_template_handler = None
         self.output_component: AbstractIRConverter = None
 
@@ -70,22 +83,25 @@ class Backend:
         return self.output_component.convert(ir_list)
 
     def run_optimize_pass(self, function: Function, all_functions, variable_types: Dict[str, str], dump_blocks=False):
-        for optimizer in self.function_optimizers:
-            optimizer(function)
+        temp_var_names = set()
+        for optimizer_triplet in self.mi_optimizers:
+            optimizer, target, rank = optimizer_triplet
+            if target == "function":
+                optimizer(function)
+            elif target == "basic_block":
+                function_basic_blocks = get_basic_blocks(function.instructions)
+                block_id_list = sorted(list(function_basic_blocks.keys()))
+                for block_id in reversed(block_id_list):
+                    block = function_basic_blocks[block_id]
+                    optimizer(block, function.name, all_functions, variable_types, temp_var_names)
+                    temp_var_names |= read_referred_temp_vars(block.instructions)
+                function_ir_list = []
+                for i in block_id_list:
+                    function_ir_list.extend(function_basic_blocks[i].instructions)
+                function.instructions = function_ir_list
 
-        function_basic_blocks = get_basic_blocks(function.instructions)
-        for (block_id, block) in function_basic_blocks.items():
-            for optimizer in self.basic_block_optimizers:
-                optimizer(block, function.name, all_functions, variable_types)
-
-        for optimizer in self.block_graph_optimizers:
-            optimizer(function_basic_blocks, variable_types)
-        n = len(function_basic_blocks.keys())
-        function_ir_list = []
-        for i in range(n):
-            function_ir_list.extend(function_basic_blocks[i].instructions)
-        function.instructions = function_ir_list
         if dump_blocks:
+            function_basic_blocks = get_basic_blocks(function.instructions)
             dump_basic_blocks(function.name, function_basic_blocks)
         return function
 
