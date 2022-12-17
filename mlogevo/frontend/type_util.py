@@ -108,6 +108,10 @@ def choose_set_instruction(typedecl):
     return ""
 
 
+def choose_decl_instruction(typedecl):
+    return choose_set_instruction(typedecl).replace("set_", "decl_")
+
+
 def extract_attribute(specifier: AttributeSpecifier) -> str:
     if isinstance(specifier, str):
         return specifier

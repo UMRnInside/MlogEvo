@@ -11,6 +11,7 @@ This module also provides append_optimizers() function
 from typing import List, Dict
 from . import mi_deduplicate_tail_return
 from . import mi_remove_unused_labels
+from . import mi_remove_unused_decls
 from . import mi_reorder_decls
 from . import mi_lcse
 

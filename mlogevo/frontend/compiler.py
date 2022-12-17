@@ -20,7 +20,7 @@ from ..intermediate.function import Function
 from .compilation_error import CompilationError
 from .type_util import choose_binaryop_instruction, \
     choose_unaryop_instruction, \
-    choose_set_instruction, \
+    choose_set_instruction, choose_decl_instruction, \
     extract_attribute, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
@@ -123,7 +123,7 @@ class Compiler(NodeVisitor):
         self.declare_variable(temp_var_name, var_type)
         if autodecorate:
             temp_var_name = self.decorate_variable(temp_var_name)
-        decl_inst = choose_set_instruction(var_type).replace("set_", "decl_")
+        decl_inst = choose_decl_instruction(var_type)
         if len(decl_inst) > 0:
             self.push(Quadruple(decl_inst, dest=temp_var_name))
         return temp_var_name
@@ -246,7 +246,7 @@ class Compiler(NodeVisitor):
 
         ir_attributes = ",".join(self.current_function.attributes)
         self.push(Quadruple("__funcbegin", func_name, "", ir_attributes))
-        decl_inst = choose_set_instruction(self.current_function.result_type).replace("set_", "decl_")
+        decl_inst = choose_decl_instruction(self.current_function.result_type)
         if len(decl_inst) > 0:
             self.push(Quadruple(decl_inst, dest=f"result@{func_name}"))
         self.visit(node.body)
@@ -262,7 +262,7 @@ class Compiler(NodeVisitor):
             var_type = node.type
             self.declare_variable(var_name, var_type)
             decorated_name = self.decorate_variable(var_name)
-            decl_inst = choose_set_instruction(var_type).replace("set_", "decl_")
+            decl_inst = choose_decl_instruction(var_type)
             if decl_inst:
                 self.push(Quadruple(decl_inst, dest=decorated_name))
             # print("Decl", var_name, var_type.type)
