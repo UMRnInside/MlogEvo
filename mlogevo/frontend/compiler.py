@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 import sysconfig
 import os
 # for string constants
@@ -7,7 +7,8 @@ from ast import literal_eval
 
 from pycparser.c_ast import \
     Compound, Constant, DeclList, Enum, FileAST, \
-    FuncDecl, Struct, TypeDecl, Typename, PtrDecl
+    FuncDecl, Struct, TypeDecl, Typename, PtrDecl, \
+    StructRef
 
 from pycparser.c_ast import NodeVisitor
 from pycparser import parse_file
@@ -25,6 +26,7 @@ from .type_util import choose_binaryop_instruction, \
     extract_attribute, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
+from .mlog_object import MlogObjectDefinitionParser, convert_field_name
 
 
 # Stateful compiler & ast node visitor
@@ -40,6 +42,7 @@ class Compiler(NodeVisitor):
         self.if_structure_count: int = 0
         self.loop_structure_count: int = 0
         self.loop_stack: list = []
+        self.mlog_object_items: Dict[str, str] = {}
         # Used in short-circuit evaluation
         self.short_circuit_count: int = 0
         self.short_circuit_triggered: bool = False
@@ -60,6 +63,7 @@ class Compiler(NodeVisitor):
         self.short_circuit_count = 0
         self.loop_stack = []
         self.instructions = []
+        self.mlog_object_items = {}
         # Used in short-circuit evaluation
         self.short_circuit_count = 0
         self.short_circuit_triggered = False
@@ -98,10 +102,16 @@ class Compiler(NodeVisitor):
         Redirect last instruction to dest_var if feasible.
         Require decorated variable name. """
         copy_inst = choose_set_instruction(dest_typedecl)
-        if is_mlogev_temp_var(src_var) and self.peek().dest == src_var:
-            self.peek().dest = dest_var
-            self.remove_temp_variable(src_var)
-            return
+        if is_mlogev_temp_var(src_var):
+            if self.peek().dest == src_var:
+                self.peek().dest = dest_var
+                self.remove_temp_variable(src_var)
+                return
+            output_vars_ref = self.peek().output_vars
+            if len(output_vars_ref) == 1 and output_vars_ref[0] == src_var:
+                output_vars_ref[0] = dest_var
+                self.remove_temp_variable(src_var)
+                return
         self.push(Quadruple(copy_inst, src_var, "", dest_var))
 
     # For global variables:
@@ -284,7 +294,9 @@ class Compiler(NodeVisitor):
         if isinstance(node.type, Struct):
             if node.type.name != "MlogObject":
                 raise NotImplementedError(node)
-            node.show()
+            struct_parser = MlogObjectDefinitionParser()
+            struct_parser.visit(node.type)
+            self.mlog_object_items = struct_parser.items
             return
         if isinstance(node.type, PtrDecl):
             # raise NotImplementedError("Pointers are NOT supported in mlog target", node)
@@ -573,6 +585,31 @@ class Compiler(NodeVisitor):
             if constraints[0] == '+':
                 result_ir.input_vars.append(var_name)
         self.push(result_ir)
+
+    def visit_StructRef(self, node: StructRef):
+        # NOTE: this ignores node.type ( . or -> )
+        base_typedecl, base_var = self.visit(node.name)
+        base_type = extract_typename(base_typedecl)
+        if base_type != "struct MlogObject":
+            raise CompilationError(
+                reason=f"Attempted to use StructRef on non-struct item",
+                coord=node.coord
+            )
+        field_name = node.field.name
+        result_type = self.mlog_object_items.get(field_name)
+        if result_type is None:
+            raise CompilationError(
+                reason=f"struct MlogObject does not have field `{field_name}`",
+                coord=node.coord
+            )
+        result_var = self.create_temp_variable(result_type)
+        asm_ir = Quadruple("asm")
+        asm_ir.raw_instructions.append(f"sensor %0 %1 {convert_field_name(field_name)}")
+        asm_ir.input_vars.append(base_var)
+        asm_ir.output_vars.append(result_var)
+
+        self.push(asm_ir)
+        return result_type, result_var
 
 
 def extract_asm_operand(operand):
