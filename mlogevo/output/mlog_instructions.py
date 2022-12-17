@@ -6,21 +6,21 @@ just use mlog_ir_registry
 from typing import List, Dict, Tuple
 
 condition_ops = {
-    "==": "equal",
-    "!=": "notEqual",
-    "<": "lessThan",
-    "<=": "lessThanEq",
-    ">": "greaterThan",
-    ">=": "greaterThanEq",
+    "eq": "equal",
+    "ne": "notEqual",
+    "lt": "lessThan",
+    "lteq": "lessThanEq",
+    "gt": "greaterThan",
+    "gteq": "greaterThanEq",
 }
 
 inverted_ops = {
-    "==": "!=",
-    "!=": "==",
-    "<=": ">",
-    ">=": "<",
-    "<": ">=",
-    ">": "<=",
+    "eq": "ne",
+    "ne": "eq",
+    "lteq": "gt",
+    "gteq": "lt",
+    "lt": "gteq",
+    "gt": "lteq",
 }
 
 mlog_ir_registry: Dict = {}
@@ -61,15 +61,21 @@ def mlog_jump_always(label: str) -> List[str]:
 
 @mlog_ir_impl("if")
 def mlog_jump_if(arg1, rel_op, arg2, label) -> List[str]:
-    condition_op = condition_ops[rel_op]
+    op = rel_op.split("_")[0]
+    condition_op = condition_ops[op]
+    if rel_op.endswith("_obj") and condition_op == "equal":
+        condition_op = "strictEqual"
     inst = F"jump {label} {condition_op} {arg1} {arg2}"
     return [inst, ]
 
 
 @mlog_ir_impl("ifnot")
 def mlog_jump_ifnot(arg1, rel_op, arg2, label) -> List[str]:
-    inv_op = inverted_ops[rel_op]
+    op = rel_op.split("_")[0]
+    inv_op = inverted_ops[op]
     condition_op = condition_ops[inv_op]
+    if rel_op.endswith("_obj") and condition_op == "equal":
+        condition_op = "strictEqual"
     inst = F"jump {label} {condition_op} {arg1} {arg2}"
     return [inst, ]
 

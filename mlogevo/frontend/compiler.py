@@ -16,6 +16,7 @@ from pycparserext_gnuc.ext_c_parser import GnuCParser, \
     FuncDeclExt, Asm
 
 from ..intermediate import Quadruple
+from ..intermediate.ir_quadruple import COMPARISONS
 from ..intermediate.function import Function
 from .compilation_error import CompilationError
 from .type_util import choose_binaryop_instruction, \
@@ -24,9 +25,6 @@ from .type_util import choose_binaryop_instruction, \
     extract_attribute, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
-
-SUPPORTED_TYPES = ("i32", "f64")
-COMPARISON_TO_BINARY_OP = {f"{v}_{vtype}": k for (k, v) in CORE_COMPARISONS.items() for vtype in SUPPORTED_TYPES}
 
 
 # Stateful compiler & ast node visitor
@@ -194,7 +192,7 @@ class Compiler(NodeVisitor):
         cond_ir = curr_instructions[-2]
         if jumper.instruction not in ("if", "ifnot"):
             return
-        if cond_ir.instruction not in COMPARISON_TO_BINARY_OP.keys():
+        if cond_ir.instruction not in COMPARISONS:
             return
         if jumper.src1 != cond_ir.dest:
             return
@@ -205,7 +203,8 @@ class Compiler(NodeVisitor):
 
         jumper.src1 = cond_ir.src1
         jumper.src2 = cond_ir.src2
-        jumper.relop = COMPARISON_TO_BINARY_OP[cond_ir.instruction]
+        # jumper.relop = COMPARISON_TO_BINARY_OP[cond_ir.instruction]
+        jumper.relop = cond_ir.instruction
         curr_instructions.append(jumper)
 
     def start_short_circuit_evaluation(self, tag_if_true="", tag_if_false=""):
@@ -365,9 +364,9 @@ class Compiler(NodeVisitor):
         if node.op in ("&&", "||"):
             self.short_circuit_triggered = True
             if node.op == "&&":
-                self.push(Quadruple("ifnot", left_var, "false", if_false, relop="!="))
+                self.push(Quadruple("ifnot", left_var, "false", if_false, relop="ne_i32"))
             else:
-                self.push(Quadruple("if", left_var, "false", if_true, relop="!="))
+                self.push(Quadruple("if", left_var, "false", if_true, relop="ne_i32"))
 
         right_typedecl, right_var = self.visit(node.right)
         if node.op in ("&&", "||"):
@@ -437,7 +436,7 @@ class Compiler(NodeVisitor):
 
         # mlog has a builtin constant "false" == 0
         # optimizer will optimize this `cond_var != false` pattern
-        self.push(Quadruple("ifnot", cond_var, "false", dest_label, relop="!="))
+        self.push(Quadruple("ifnot", cond_var, "false", dest_label, relop="ne_i32"))
         self.get_faster_conditional_jump()
 
         self.push(Quadruple("label", iftrue_label))
@@ -465,7 +464,7 @@ class Compiler(NodeVisitor):
             self.visit(node.next)
         self.push(Quadruple("label", afterinit_label))
         _, cond_var = self.visit(node.cond)
-        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="ne_i32"))
         self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 
@@ -479,7 +478,7 @@ class Compiler(NodeVisitor):
         self.visit(node.stmt)
         self.push(Quadruple("label", cont_label))
         _, cond_var = self.visit(node.cond)
-        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="ne_i32"))
         self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 
@@ -494,7 +493,7 @@ class Compiler(NodeVisitor):
         self.visit(node.stmt)
         self.push(Quadruple("label", cont_label))
         _, cond_var = self.visit(node.cond)
-        self.push(Quadruple("if", cond_var, "false", start_label, relop="!="))
+        self.push(Quadruple("if", cond_var, "false", start_label, relop="ne_i32"))
         self.get_faster_conditional_jump()
         self.push(Quadruple("label", end_label))
 

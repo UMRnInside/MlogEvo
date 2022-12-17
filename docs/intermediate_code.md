@@ -45,8 +45,11 @@ The jump instructions allow the programmer to (indirectly) set the value of the 
 
 ### Jump if condition IS met
 * Format: `if <condition> goto <label>`
+* `<condition>`: `<value1> <relop> <value2>`
+* e.g.: `if x lt_i32 100 goto some_label`
 
-A _condition_ is a C-style comparison like `x < 100`
+A _condition_ is a comparison like `x lt_i32 100` (which means `x < 100`).
+A _relop_ is one of the comparison instructions.
 
 ### Jump if condition IS Not met
 * Format: `ifnot <condition> goto <label>`
