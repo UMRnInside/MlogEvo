@@ -20,9 +20,9 @@ I1O1_INSTRUCTIONS = {
     # __funcbegin function_name attribute
     "__funcbegin",
 }
-I2O1_INSTRUCTIONS = set()
+I2O1_INSTRUCTIONS = {"eq_obj", "ne_obj", }
 O1_INSTRUCTIONS = {"decl_obj", }
-COMPARISONS = set()
+COMPARISONS = {"eq_obj", "ne_obj", }
 
 CORE_I1O1_ITEMS = {
     "set", "minus",

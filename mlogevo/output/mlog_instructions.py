@@ -184,9 +184,14 @@ def mlog_equal(src1, src2, dest) -> List[str]:
     return [F"op equal {dest} {src1} {src2}", ]
 
 
-@mlog_ir_impl("ne", ("i32", "f64"))
+@mlog_ir_impl("ne", ("i32", "f64", "obj"))
 def mlog_not_equal(src1, src2, dest) -> List[str]:
     return [F"op notEqual {dest} {src1} {src2}", ]
+
+
+@mlog_ir_impl("eq", ("obj", ))
+def mlog_strict_equal(src1, src2, dest) -> List[str]:
+    return [F"op strictEqual {dest} {src1} {src2}", ]
 
 
 @mlog_ir_impl("noop", ("i32", "f64"))

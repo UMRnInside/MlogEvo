@@ -11,6 +11,9 @@ CONVERSION_RANK = {
     "long long": 6,
     "float": 7,
     "double": 8,
+    # See also:
+    # https://mindustrygame.github.io/wiki/logic/3-variables/#data-types-and-implicit-conversion
+    "struct MlogObject": -1,
 }
 
 # TODO: new IR format

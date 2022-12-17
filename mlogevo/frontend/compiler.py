@@ -337,6 +337,12 @@ class Compiler(NodeVisitor):
 
     def visit_Cast(self, node):
         src_typedecl, src_var = self.visit(node.expr)
+        src_typename = extract_typename(src_typedecl)
+        dst_typename = extract_typename(node.to_type.type)
+        # Mlog Object can contain int or double
+        if src_typename == dst_typename or dst_typename == "struct MlogObject":
+            return src_typedecl, src_var
+
         result_var = self.static_cast(src_var, src_typedecl, node.to_type.type)
         return node.to_type.type, result_var
 
