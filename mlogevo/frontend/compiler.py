@@ -339,9 +339,14 @@ class Compiler(NodeVisitor):
 
     # Return (type, value)
     def visit_Constant(self, node):
-        if extract_typename(node.type) in ("double", "float"):
+        typename = extract_typename(node.type)
+        if typename in ("double", "float"):
             value = str(float(node.value))
             return node.type, value
+        if typename == "string":
+            # Treat string as a MlogObject
+            return "struct MlogObject", node.value
+            pass
         return node.type, node.value
 
     def visit_ID(self, node):
@@ -552,6 +557,22 @@ class Compiler(NodeVisitor):
     def visit_FuncCall(self, node):
         function_name = node.name.name
         args = node.args or []
+        # NOTE: this is the first builtin function in MlogEvo
+        # The print() w/o va_arg
+        if function_name == "print":
+            asm_lines = []
+            input_vars = []
+            for arg in args:
+                # arg_varname could be a string though
+                arg_typedecl, arg_varname = self.visit(arg)
+                asm_lines.append(f"print {arg_varname}")
+                input_vars.append(arg_varname)
+            asm_ir = Quadruple("asm_volatile")
+            asm_ir.input_vars = input_vars
+            asm_ir.raw_instructions = asm_lines
+            self.push(asm_ir)
+            return None, ""
+
         func = self.functions.get(function_name, None)
         if func is None:
             raise ValueError(f"{function_name} is not a function (or not declared)")
