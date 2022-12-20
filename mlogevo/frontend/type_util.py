@@ -45,7 +45,7 @@ CORE_UNARY_OPERATORS = {
 }
 
 __type_int = IdentifierType(["int", ])
-DUMMY_INT_TYPEDECL = TypeDecl("", [], [], __type_int)
+DUMMY_INT_TYPEDECL = TypeDecl("", quals=[], type=__type_int)
 
 
 def extract_typename(typedecl) -> str:
