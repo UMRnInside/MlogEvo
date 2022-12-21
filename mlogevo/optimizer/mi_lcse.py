@@ -378,12 +378,17 @@ def write_active_aliases(
         final_variable_version: Dict[str, VersionedVariable],
         wanted_temp_vars: Set[str]
 ) -> List[Quadruple]:
+    lcse_logger.debug(f"write_active_aliases: {base} {var_type}")
     if len(base.name) == 0 or var_type is None:
         return []
     result = []
     for derived in alias_group[base]:
         if derived.name.startswith("___vtmp_") and derived.name not in wanted_temp_vars:
             # TODO: cross-block variable references?
+            lcse_logger.debug(
+                f"write_active_aliases: discarding {base} - {derived}:"
+                f"is vtmp"
+            )
             continue
         if final_variable_version[derived.name] == derived:
             lcse_logger.debug(f"write_active_aliases: {base} -> {derived}")
@@ -398,9 +403,6 @@ def regenerate_instructions_from_node(
         known_variable_types: Dict[str, str],
         wanted_temp_vars: Set[str]
 ) -> List[Quadruple]:
-    # Empty / constant nodes
-    if node.instruction == "":
-        return []
     result: List[Quadruple] = []
     alias_fillers: List[Quadruple] = []
 
@@ -441,7 +443,9 @@ def regenerate_instructions_from_node(
         tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name),
                                     alias_group, variable_version, wanted_temp_vars)
         result.extend(tmpl)
-    if current_dest.version >= 1:
+    # If I called the same function again...
+    if current_dest.version >= 1 \
+            or current_dest.name.startswith("result@"):
         tmpl = write_active_aliases(
             current_dest, known_variable_types.get(current_dest.name),
             alias_group, variable_version, wanted_temp_vars
@@ -460,6 +464,8 @@ def regenerate_instructions_from_node(
         # BASIC_BLOCK_EXITS does not write to variables
         # they set `@counter` instead
         return [node.original_ir, ]
+    elif node.instruction == "":
+        pass
     else:
         raise ValueError(f"Unhandled DAG instruction: {node.instruction}")
     return result + alias_fillers

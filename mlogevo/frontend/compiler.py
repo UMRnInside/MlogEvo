@@ -587,6 +587,9 @@ class Compiler(NodeVisitor):
                 real_argument = self.static_cast(arg_varname, arg_typedecl, param_decl[1])
             self.heuristic_assign(real_argument, param_realname, param_decl[1])
         self.push(Quadruple("__call", function_name))
+        decl_inst = choose_decl_instruction(func.result_type)
+        if decl_inst != "":
+            self.push(Quadruple(decl_inst, dest=f"result@{function_name}"))
         # Assume a function returns something
         return func.result_type, f"result@{function_name}"
 
