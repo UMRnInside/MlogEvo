@@ -1,2 +1,2 @@
 pycparserext_gnuc>=2022.10
-pycparser>=2.18
+pycparser>=2.21
