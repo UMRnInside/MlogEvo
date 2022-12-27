@@ -23,6 +23,10 @@ I1O1_INSTRUCTIONS = {
 I2O1_INSTRUCTIONS = {"eq_obj", "ne_obj", }
 O1_INSTRUCTIONS = {"decl_obj", }
 COMPARISONS = {"eq_obj", "ne_obj", }
+NO_INPUT_INSTRUCTIONS = {
+    "goto", "label", "__funcbegin", "__funcend",
+    "__call", "__return",
+}
 
 CORE_I1O1_ITEMS = {
     "set", "minus",
@@ -67,7 +71,7 @@ for i in I32ONLY_I1O1_ITEMS:
 for i in I32ONLY_I2O1_ITEMS:
     I2O1_INSTRUCTIONS.add(f"{i}_i32")
 
-variable_pattern = re.compile(r'^[A-Za-z_@][_@()\[\]\w]+')
+variable_pattern = re.compile(r'^[A-Za-z_@][_@()\[\]\w]*')
 
 
 def test_parameter_type(param: str) -> str:

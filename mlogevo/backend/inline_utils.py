@@ -2,6 +2,7 @@ from typing import Iterable, Tuple, List, Dict
 from copy import copy
 
 from ..intermediate import Quadruple
+from ..intermediate.ir_quadruple import NO_INPUT_INSTRUCTIONS
 from ..intermediate.function import Function
 
 
@@ -48,12 +49,45 @@ def filter_inlineable_functions(functions: Iterable[Function], arch: str = "mlog
     return inline_functions, common_functions
 
 
+def redirect_variable(ir: Quadruple, from_var: str, to_var: str) -> Quadruple:
+    if from_var == to_var:
+        return ir
+    if ir.instruction.startswith("decl_") or ir.instruction in NO_INPUT_INSTRUCTIONS:
+        return ir
+
+    if ir.src1 == from_var:
+        ir.src1 = to_var
+    if ir.src2 == from_var:
+        ir.src2 = to_var
+    if ir.dest == from_var:
+        ir.dest = to_var
+
+    # Avoid modifying original input_vars and output_vars
+    input_vars = []
+    output_vars = []
+    for v in ir.input_vars:
+        input_vars.append(v if v != from_var else to_var)
+    for v in ir.output_vars:
+        output_vars.append(v if v != from_var else to_var)
+    ir.input_vars = input_vars
+    ir.output_vars = output_vars
+    return ir
+
+
 def inline_calls(common_function_name: str,
                  common_function_body: List[Quadruple],
                  inline_functions: Dict[str, Function],) -> List[Quadruple]:
     result_irs: List[Quadruple] = []
     ctr = 0
-    for ir in common_function_body:
+    last_result_assignment: Dict[str, str] = {}
+    # A reference
+    last_assignment_ir: Dict[str, Quadruple] = {}
+    for ir in reversed(common_function_body):
+        if ir.instruction.startswith("set_") and ir.src1.startswith("result@"):
+            last_result_assignment[ir.src1] = ir.dest
+            last_assignment_ir[ir.src1] = ir
+            result_irs.append(ir)
+            continue
         if ir.instruction != "__call":
             result_irs.append(ir)
             continue
@@ -63,14 +97,24 @@ def inline_calls(common_function_name: str,
         ctr += 1
         inlined_target = inline_functions[ir.src1]
         inlined_body = inlined_target.instructions
-        assert len(inlined_body) >= 2
+        result_var = f"result@{inlined_target.name}"
+        assigned_to_var = last_result_assignment.get(result_var, result_var)
+        inlined_block = []
         return_jump = f"__MLOGEV_INLINE_CALL_{inlined_target.name}_{common_function_name}_{ctr}__"
         for inst in inlined_body:
             if inst.instruction in ("__funcbegin", "__funcend"):
                 continue
             if inst.instruction == "__return":
-                result_irs.append(Quadruple("goto", return_jump))
+                inlined_block.append(Quadruple("goto", return_jump))
                 continue
-            result_irs.append(copy(inst))
-        result_irs.append(Quadruple("label", return_jump))
-    return result_irs
+            inlined_block.append(redirect_variable(copy(inst), result_var, assigned_to_var))
+        inlined_block.append(Quadruple("label", return_jump))
+        #print("\n".join((v.dump() for v in inlined_block)))
+        inlined_block.reverse()
+        result_irs.extend(inlined_block)
+        if assigned_to_var != result_var:
+            last_assignment_ir[result_var].instruction = "ELIMINATED"
+            del last_result_assignment[result_var]
+            del last_assignment_ir[result_var]
+
+    return [i for i in reversed(result_irs) if i.instruction != "ELIMINATED"]
