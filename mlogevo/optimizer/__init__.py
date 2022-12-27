@@ -14,6 +14,7 @@ from . import mi_remove_unused_labels
 from . import mi_remove_unused_decls
 from . import mi_reorder_decls
 from . import mi_lcse
+from . import mi_remove_unused_variables
 
 from .optimizer_registry import \
     machine_dependent_optimizers, \

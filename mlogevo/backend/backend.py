@@ -83,7 +83,6 @@ class Backend:
         return self.output_component.convert(ir_list)
 
     def run_optimize_pass(self, function: Function, all_functions, variable_types: Dict[str, str], dump_blocks=False):
-        temp_var_names = set()
         for optimizer_triplet in self.mi_optimizers:
             optimizer, target, rank = optimizer_triplet
             if target == "function":
@@ -91,10 +90,9 @@ class Backend:
             elif target == "basic_block":
                 function_basic_blocks = get_basic_blocks(function.instructions)
                 block_id_list = sorted(list(function_basic_blocks.keys()))
-                for block_id in reversed(block_id_list):
+                for block_id in block_id_list:
                     block = function_basic_blocks[block_id]
-                    optimizer(block, function.name, all_functions, variable_types, temp_var_names)
-                    temp_var_names |= read_referred_temp_vars(block.instructions)
+                    optimizer(block, function.name, all_functions, variable_types)
                 function_ir_list = []
                 for i in block_id_list:
                     function_ir_list.extend(function_basic_blocks[i].instructions)

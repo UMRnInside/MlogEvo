@@ -70,7 +70,6 @@ def eliminate_local_common_subexpression(
         current_function_name: str,
         functions: Dict,
         known_variable_types: Dict[str, str],
-        temp_vars_used_later: Set[str]
 ) -> BasicBlock:
     lcse_logger.debug("*** START LCSE ***")
     lcse_logger.debug("basic block content:")
@@ -203,7 +202,7 @@ def eliminate_local_common_subexpression(
         current_node = dag_nodes[q.popleft()]
         lcse_logger.debug(f"toposort on node {current_node.id}")
         tmpl = regenerate_instructions_from_node(current_node, variable_version, reverse_aliases,
-                                                 known_variable_types, temp_vars_used_later)
+                                                 known_variable_types)
         lcse_logger.debug(f"this regenerates:")
         lcse_logger.debug("\n".join([v.dump() for v in tmpl]))
         result.extend(tmpl)
@@ -375,21 +374,15 @@ def write_active_aliases(
         base: VersionedVariable,
         var_type: str,
         alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
-        final_variable_version: Dict[str, VersionedVariable],
-        wanted_temp_vars: Set[str]
+        final_variable_version: Dict[str, VersionedVariable]
 ) -> List[Quadruple]:
     lcse_logger.debug(f"write_active_aliases: {base} {var_type}")
     if len(base.name) == 0 or var_type is None:
         return []
     result = []
     for derived in alias_group[base]:
-        if derived.name.startswith("___vtmp_") and derived.name not in wanted_temp_vars:
-            # TODO: cross-block variable references?
-            lcse_logger.debug(
-                f"write_active_aliases: discarding {base} - {derived}:"
-                f"is vtmp"
-            )
-            continue
+        # For redundant temp variables:
+        # we would remove them later
         if final_variable_version[derived.name] == derived:
             lcse_logger.debug(f"write_active_aliases: {base} -> {derived}")
             result.append(Quadruple(f"set_{var_type}", src1=base.name, dest=derived.name))
@@ -400,8 +393,7 @@ def regenerate_instructions_from_node(
         node: DagNode,
         variable_version: Dict[str, VersionedVariable],
         alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
-        known_variable_types: Dict[str, str],
-        wanted_temp_vars: Set[str]
+        known_variable_types: Dict[str, str]
 ) -> List[Quadruple]:
     result: List[Quadruple] = []
     alias_fillers: List[Quadruple] = []
@@ -418,13 +410,13 @@ def regenerate_instructions_from_node(
             if old_var.version <= 0:
                 tmpl = write_active_aliases(
                     old_var, known_variable_types.get(old_var.name),
-                    alias_group, variable_version, wanted_temp_vars
+                    alias_group, variable_version
                 )
                 result.extend(tmpl)
             if versioned_var.version >= 1:
                 tmpl = write_active_aliases(
                     versioned_var, known_variable_types.get(versioned_var.name),
-                    alias_group, variable_version, wanted_temp_vars
+                    alias_group, variable_version
                 )
                 alias_fillers.extend(tmpl)
         ir.input_vars = input_vars
@@ -441,14 +433,14 @@ def regenerate_instructions_from_node(
     old_dest = VersionedVariable(current_dest.name, current_dest.version - 1)
     if old_dest.version <= 0:
         tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name),
-                                    alias_group, variable_version, wanted_temp_vars)
+                                    alias_group, variable_version)
         result.extend(tmpl)
     # If I called the same function again...
     if current_dest.version >= 1 \
             or current_dest.name.startswith("result@"):
         tmpl = write_active_aliases(
             current_dest, known_variable_types.get(current_dest.name),
-            alias_group, variable_version, wanted_temp_vars
+            alias_group, variable_version
         )
         alias_fillers.extend(tmpl)
 
