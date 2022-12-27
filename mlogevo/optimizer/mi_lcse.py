@@ -177,7 +177,8 @@ def eliminate_local_common_subexpression(
             node.rdepends.append(ending_node)
     # This modifies aliases[]
     # TODO: should we adjust aliases?
-    reverse_aliases = get_reverse_aliases(variable_version, aliases, callee, False)
+    reverse_aliases = get_reverse_aliases(variable_version, aliases, current_function_name, callee, False)
+    lcse_logger.debug(f"aliases: {aliases}")
     for node in dag_nodes:
         p = []
         for output in node.provides:
@@ -201,8 +202,8 @@ def eliminate_local_common_subexpression(
     while len(q) > 0:
         current_node = dag_nodes[q.popleft()]
         lcse_logger.debug(f"toposort on node {current_node.id}")
-        tmpl = regenerate_instructions_from_node(current_node, variable_version, reverse_aliases,
-                                                 known_variable_types)
+        tmpl = regenerate_instructions_from_node(current_node, variable_version, aliases,
+                                                 reverse_aliases, known_variable_types)
         lcse_logger.debug(f"this regenerates:")
         lcse_logger.debug("\n".join([v.dump() for v in tmpl]))
         result.extend(tmpl)
@@ -326,24 +327,27 @@ def detect_active_nodes(
 def get_reverse_aliases(
         variable_version: Dict[str, VersionedVariable],
         aliases: Dict[VersionedVariable, VersionedVariable],
+        current_function_name: str,
         callee: str,
         adjustment_desired = False
 ) -> Dict[VersionedVariable, Set[VersionedVariable]]:
 
     def evaluate_weight(var: VersionedVariable) -> int:
         weight = 0
+        func_scope = var.name.split("@")[-1]
         if var.name.startswith("__vtmp_") or var.name.startswith("___vtmp_"):
             # Should we prefer temp variables?
+            weight -= 2
+        if var.name.startswith("result@") and func_scope != current_function_name:
             weight -= 1
-        if variable_version[var.name] == var:
-            weight += 8
-        else:
-            weight -= 8
-
+        # TODO: this causes some bug, further investigation required
+        # if variable_version[var.name] == var:
+        #     weight += 8
         if "@" not in var.name:
             # global variables
-            weight += 4
-        if "@" in var.name and var.name.split("@")[-1] == callee:
+            # weight += 4
+            pass
+        if "@" in var.name and func_scope == callee:
             # NOTE: this depends on `__call` being basic block exits
             weight += 2
         return weight
@@ -354,15 +358,17 @@ def get_reverse_aliases(
     if not adjustment_desired:
         return alias_group
 
+    aliases.clear()
     for (old_base, candidates) in alias_group.items():
         best_base = max(old_base, *candidates, key=evaluate_weight)
         if best_base == old_base:
+            for derived in candidates:
+                aliases[derived] = old_base
             continue
         aliases[old_base] = best_base
         for candidate in candidates:
-            aliases[candidate] = best_base
-        if best_base in aliases.keys():
-            del aliases[best_base]
+            if candidate != best_base:
+                aliases[candidate] = best_base
 
     alias_group = defaultdict(set)
     for (derived, base) in aliases.items():
@@ -392,6 +398,7 @@ def write_active_aliases(
 def regenerate_instructions_from_node(
         node: DagNode,
         variable_version: Dict[str, VersionedVariable],
+        aliases: Dict[VersionedVariable, VersionedVariable],
         alias_group: Dict[VersionedVariable, Set[VersionedVariable]],
         known_variable_types: Dict[str, str]
 ) -> List[Quadruple]:
@@ -407,6 +414,7 @@ def regenerate_instructions_from_node(
         ir = node.original_ir
         for versioned_var in node.provides:
             old_var = VersionedVariable(versioned_var.name, versioned_var.version - 1)
+            old_var = get_variable_true_name(old_var, aliases)
             if old_var.version <= 0:
                 tmpl = write_active_aliases(
                     old_var, known_variable_types.get(old_var.name),
@@ -431,6 +439,7 @@ def regenerate_instructions_from_node(
     # Now we only have 1 output
     current_dest = node.provides[0]
     old_dest = VersionedVariable(current_dest.name, current_dest.version - 1)
+    old_dest = get_variable_true_name(old_dest, aliases)
     if old_dest.version <= 0:
         tmpl = write_active_aliases(old_dest, known_variable_types.get(old_dest.name),
                                     alias_group, variable_version)
