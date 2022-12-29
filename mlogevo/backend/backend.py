@@ -36,23 +36,10 @@ def read_variable_types(ir_list: Iterable[Quadruple], result: Dict[str, str]):
         result[ir.dest] = tokens[-1]
 
 
-def read_referred_temp_vars(ir_list: Iterable[Quadruple]) -> Set[str]:
-    def is_temp_variable(name: str):
-        return name.startswith("___vtmp_") or name.startswith("__vtmp_")
-
-    temp_variables = set()
-    for ir in ir_list:
-        if is_temp_variable(ir.src1):
-            temp_variables.add(ir.src1)
-        if is_temp_variable(ir.src2):
-            temp_variables.add(ir.src2)
-        for var in filter(is_temp_variable, ir.input_vars):
-            temp_variables.add(var)
-    return temp_variables
-
-
 class Backend:
-    def __init__(self):
+    def __init__(self, arch, target):
+        self.arch = arch
+        self.target = target
         # function_optimizers: work on the whole function
         self.mi_optimizers = []
         self.asm_template_handler = None
@@ -73,13 +60,14 @@ class Backend:
             self.run_optimize_pass(function, all_functions, variable_types, dump_blocks)
 
         ir_list = inits[:]
+        # make main() the first function
         if "main" in common_functions.keys():
             ir_list += common_functions["main"].instructions
-        # make main() the first function
         for (name, body) in common_functions.items():
             if name == "main": continue
             ir_list.extend(body.instructions)
-        self.convert_asm(ir_list)
+        if self.target != "mlogev_ir":
+            self.convert_asm(ir_list)
         return self.output_component.convert(ir_list)
 
     def run_optimize_pass(self, function: Function, all_functions, variable_types: Dict[str, str], dump_blocks=False):
@@ -124,7 +112,7 @@ def make_backend(arch="mlog", target="mlog",
     if machine_dependents is None:
         machine_dependents = []
 
-    backend = Backend()
+    backend = Backend(arch, target)
     if arch == "mlog":
         backend.asm_template_handler = mlog_expand_asm_template
     if target == "mlog":
