@@ -30,6 +30,7 @@ from .mlog_object import MlogObjectDefinitionParser, convert_field_name
 
 
 # Stateful compiler & ast node visitor
+# TODO: this stateful compiler is a mess, consider breaking it into several parts
 class Compiler(NodeVisitor):
     def __init__(self):
         self.functions = None
@@ -38,6 +39,7 @@ class Compiler(NodeVisitor):
         self.loops: list = []
         self.loop_end: int = 0
         self.vtmp_count: int = 0
+        self.function_vtmp_count: int = 0
         self.instructions: list = []
         self.if_structure_count: int = 0
         self.loop_structure_count: int = 0
@@ -128,8 +130,13 @@ class Compiler(NodeVisitor):
 
     # temp variable should be decorated
     def create_temp_variable(self, var_type, autodecorate=True) -> str:
-        self.vtmp_count += 1
-        temp_var_name = F"__vtmp_{self.vtmp_count}"
+        temp_var_name: str
+        if self.current_function is None:
+            self.vtmp_count += 1
+            temp_var_name = F"__vtmp_{self.vtmp_count}"
+        else:
+            self.function_vtmp_count += 1
+            temp_var_name = F"__vtmp_{self.function_vtmp_count}"
         self.declare_variable(temp_var_name, var_type)
         if autodecorate:
             temp_var_name = self.decorate_variable(temp_var_name)
@@ -252,6 +259,7 @@ class Compiler(NodeVisitor):
             specs = [extract_attribute(attr) for attr in node.decl.funcspec] or ["default", ]
             self.current_function = Function(func_name, func_decl.type, params, dict(params), [], specs)
 
+        self.function_vtmp_count = 0
         # self.function_locals = self.current_function.local_vars
         self.functions[func_name] = self.current_function
 
