@@ -27,11 +27,12 @@ from .type_util import choose_binaryop_instruction, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
 from .mlog_object import MlogObjectDefinitionParser, convert_field_name
+from .parent_node_visitor import ParentNodeVisitor
 
 
 # Stateful compiler & ast node visitor
 # TODO: this stateful compiler is a mess, consider breaking it into several parts
-class Compiler(NodeVisitor):
+class Compiler(ParentNodeVisitor):
     def __init__(self):
         self.functions = None
         self.current_function = None
@@ -312,7 +313,10 @@ class Compiler(NodeVisitor):
                 struct_parser.visit(node.type)
                 self.mlog_builtins_items = struct_parser.items
                 return
-            raise NotImplementedError(node)
+            raise CompilationError(
+                reason=f"struct support is not implemented yet",
+                coord=node.coord
+            )
         if isinstance(node.type, PtrDecl):
             # raise NotImplementedError("Pointers are NOT supported in mlog target", node)
             # node.show()

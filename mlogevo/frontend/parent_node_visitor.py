@@ -3,6 +3,7 @@ from pycparser.c_ast import NodeVisitor
 class ParentNodeVisitor(NodeVisitor):
     def __init__(self):
         self._method_cache = {}
+        self.node_stack = []
         self.current_parent = None
 
     def visit(self, node):
@@ -16,9 +17,11 @@ class ParentNodeVisitor(NodeVisitor):
 
         # No, python does NOT have tail call optimization
         # https://stackoverflow.com/questions/13591970/does-python-optimize-tail-recursion
-        old_parent = self.current_parent
-        self.current_parent = node
+        if len(self.node_stack) > 0:
+            self.current_parent = self.node_stack[-1]
+
+        self.node_stack.append(node)
         result = visitor(node)
-        self.current_parent = old_parent
+        self.node_stack.pop()
 
         return result
