@@ -67,6 +67,8 @@ def get_arithmetic_result_type(type_l, type_r):
 
 
 def decorate_instruction(core, result_rank):
+    if result_rank == -1:
+        return f"{core}_obj"
     return f"{core}_f64" if result_rank >= 7 else f"{core}_i32"
 
 
