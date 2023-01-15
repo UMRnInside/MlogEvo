@@ -661,22 +661,21 @@ class Compiler(ParentNodeVisitor):
         field_name = node.field.name
         result_type = None
         result_var = None
-
-        if base_type == "struct MlogObject":
-            result_type = self.mlog_object_items.get(field_name)
-            result_var = self.create_temp_variable(result_type)
-            asm_ir = Quadruple("asm")
-            asm_ir.raw_instructions.append(f"sensor %0 %1 {convert_field_name(field_name)}")
-            asm_ir.input_vars.append(base_var)
-            asm_ir.output_vars.append(result_var)
-            self.push(asm_ir)
-        elif base_type == "struct MLOG_BUILTINS":
-            result_type = self.mlog_builtins_items.get(field_name)
-            result_var = convert_field_name(field_name)
-
-        if result_type is None or result_var is None:
+        try:
+            if base_type == "struct MlogObject":
+                result_type = self.mlog_object_items[field_name]
+                result_var = self.create_temp_variable(result_type)
+                asm_ir = Quadruple("asm")
+                asm_ir.raw_instructions.append(f"sensor %0 %1 {convert_field_name(field_name)}")
+                asm_ir.input_vars.append(base_var)
+                asm_ir.output_vars.append(result_var)
+                self.push(asm_ir)
+            elif base_type == "struct MLOG_BUILTINS":
+                result_type = self.mlog_builtins_items[field_name]
+                result_var = convert_field_name(field_name)
+        except KeyError as e:
             raise CompilationError(
-                reason=f"{base_type} does not have field `{field_name}`",
+                reason=f"`{base_type}` does not have field `{e.args[0]}`",
                 coord=node.coord
             )
         return result_type, result_var
