@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List, Dict, Set
 import sysconfig
 import os
 # for string constants
@@ -47,6 +47,7 @@ class Compiler(ParentNodeVisitor):
         self.loop_stack: list = []
         self.mlog_object_items: Dict[str, str] = {}
         self.mlog_builtins_items: Dict[str, str] = {}
+        self.referred_builtins_items: Set[str] = set()
 
         self.typedefs = {}
         # Used in short-circuit evaluation
@@ -70,7 +71,8 @@ class Compiler(ParentNodeVisitor):
         self.loop_stack = []
         self.instructions = []
         self.mlog_object_items = {}
-        self.mlog_builtins_items: Dict[str, str] = {}
+        self.mlog_builtins_items = {}
+        self.referred_builtins_items = set()
 
         self.typedefs = {}
         # Used in short-circuit evaluation
@@ -93,7 +95,15 @@ class Compiler(ParentNodeVisitor):
                          cpp_args=cpp_args,
                          parser=GnuCParser())
         self.visit(ast)
-        return self.instructions, self.functions
+        referred_builtins = []
+        for field in self.referred_builtins_items:
+            referred_builtins.append(
+                Quadruple(
+                    instruction=choose_decl_instruction(self.mlog_builtins_items[field]),
+                    dest=convert_field_name(field)
+                )
+            )
+        return referred_builtins+self.instructions, self.functions
 
     def push(self, instruction) -> None:
         if self.current_function is None:
@@ -673,6 +683,7 @@ class Compiler(ParentNodeVisitor):
             elif base_type == "struct MLOG_BUILTINS":
                 result_type = self.mlog_builtins_items[field_name]
                 result_var = convert_field_name(field_name)
+                self.referred_builtins_items.add(field_name)
         except KeyError as e:
             raise CompilationError(
                 reason=f"`{base_type}` does not have field `{e.args[0]}`",
