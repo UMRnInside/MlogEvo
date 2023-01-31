@@ -179,6 +179,7 @@ def eliminate_local_common_subexpression(
     # TODO: should we adjust aliases?
     reverse_aliases = get_reverse_aliases(variable_version, aliases, current_function_name, callee, False)
     lcse_logger.debug(f"aliases: {aliases}")
+    lcse_logger.debug(f"reverse_aliases: {reverse_aliases}")
     for node in dag_nodes:
         p = []
         for output in node.provides:
@@ -445,7 +446,7 @@ def regenerate_instructions_from_node(
                                     alias_group, variable_version)
         result.extend(tmpl)
     # If I called the same function again...
-    if current_dest.version >= 1 \
+    if current_dest.version >= 0 \
             or current_dest.name.startswith("result@"):
         tmpl = write_active_aliases(
             current_dest, known_variable_types.get(current_dest.name),
