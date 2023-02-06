@@ -4,6 +4,7 @@ import logging
 
 from .frontend import Compiler, CompilationError
 from .backend import make_backend, ARCH_ID
+from .intermediate.quadruple_from_text import extract_functions_from_ir, TextQuadrupleParser
 from typing import Tuple
 
 parser = argparse.ArgumentParser(prog="mlogevo")
@@ -25,6 +26,8 @@ parser.add_argument("-print-basic-blocks", action="store_true",
         help="dump basic blocks")
 parser.add_argument("-skip-preprocess", action="store_false",
         help="do not invoke `cpp` or `gcc -E`")
+parser.add_argument("-x", type=str, choices=("c", "mlogev_ir"), default="c",
+        help="Specify type of input file, \"C\" by default.")
 
 # Machine-dependant, arch & target(output format)
 parser.add_argument("-march", type=str, choices=("mlog", ), default="mlog",
@@ -49,6 +52,24 @@ _nameToLevel = {
     'DEBUG': logging.DEBUG,
     'NOTSET': logging.NOTSET,
 }
+
+def use_compiler(frontend, args, cpp_args) -> Tuple:
+    try:
+        frontend_result = frontend.compile(
+            args.source_file,
+            use_cpp=args.skip_preprocess,
+            cpp_args=cpp_args
+        )
+        return frontend_result
+    except CompilationError as exception:
+        error_info = exception.error_info
+        reason = error_info.get("reason")
+        optional_coord = error_info.get("coord", "")
+        if reason is not None:
+            print(f"{optional_coord or args.source_file}: error: {reason}", file=sys.stderr)
+            exit(1)
+        else:
+            raise exception
 
 
 def main(argv=None):
@@ -78,21 +99,13 @@ def main(argv=None):
         optimize_level=args.O,
     )
     frontend_result: Tuple = ()
-    try:
-        frontend_result = frontend.compile(
-            args.source_file,
-            use_cpp=args.skip_preprocess,
-            cpp_args=cpp_args
-        )
-    except CompilationError as exception:
-        error_info = exception.error_info
-        reason = error_info.get("reason")
-        optional_coord = error_info.get("coord", "")
-        if reason is not None:
-            print(f"{optional_coord or args.source_file}: error: {reason}", file=sys.stderr)
-            exit(1)
-        else:
-            raise exception
+    if args.x == "c":
+        frontend_result = use_compiler(frontend, args, cpp_args)
+    elif args.x == "mlogev_ir":
+        text_parser = TextQuadrupleParser()
+        with open(args.source_file, "r") as f:
+            ir_list = text_parser.parse(f)
+            frontend_result = extract_functions_from_ir(ir_list)
 
     result = backend.compile(frontend_result, dump_blocks=args.print_basic_blocks)
     if args.output == '-':
