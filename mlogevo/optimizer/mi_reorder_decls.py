@@ -19,6 +19,5 @@ def reorder_decls(func: Function) -> Function:
         else:
             body.append(ir)
     end = func.instructions[-1]
-    decls.sort(key=lambda ir: ir.instruction)
     func.instructions = [start, ] + decls + body + [end, ]
     return func
