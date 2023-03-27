@@ -6,6 +6,8 @@ class ParentNodeVisitor(NodeVisitor):
         self.node_stack = []
         self.current_parent = None
 
+        super().__init__()
+
     def visit(self, node):
         """ Visit a node, while keep a parent node reference in self.current_parent """
         # Almost copy-pasted part from pycparser.c_ast.NodeVisitor
