@@ -23,6 +23,7 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 * Format: `decl_i32 <var>`
 * Format: `decl_f64 <var>`
 * Format: `decl_obj <var>`
+* Format: `decl_struct <var> <struct_name>`
 
 ## Data transfer
 
@@ -30,6 +31,7 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 * Format: `set_i32 <src> <dest>`
 * Format: `set_f64 <src> <dest>`
 * Format: `set_obj <src> <dest>`
+* Format: `set_struct <src> <dest>`
 
 Copies the src operand into the dest operand. Note that if `src` operand is a float64 value, it will be rounded _down_ in `dest` operand.
 The `src` operand can be an immediate value or a variable, while `dest` must be a variable.
@@ -147,7 +149,7 @@ Logical shift `src` to the right by `count` bits, then store its result in `dest
 ## Functions
 
 ### Function block begin
-* Format: `__funcbegin <function_name>`
+* Format: `__funcbegin <function_name> <flags>`
 
 Denote the beginning of a function, and assign a label.
 
@@ -166,6 +168,24 @@ Call a function, does store return address, does NOT automatically push argument
 
 Return from a function, jump back to callee, does NOT automatically push results.
 
+
+## Memory
+
+### Read
+ * Format: `read_i32 <address> <variable>`
+ * Format: `read_f64 <address> <variable>`
+
+Load variable from memory address. 
+
+### Write
+ * Format: `write_i32 <address> <variable>`
+ * Format: `write_f64 <address> <variable>`
+
+## Structure
+
+* Format: `__structbegin <name>`
+* Format: `__structend <name>`
+* Internal notation: `Quadruple(instruction="struct")`
 
 ## ASM Template block
 
