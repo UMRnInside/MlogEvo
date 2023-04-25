@@ -1,4 +1,4 @@
-# MlogEvo Mindustry Logic Calling Convention
+# MlogEvo "Flat" Mindustry Logic Calling Convention
 
 Special thanks to [SuperStormer/c2logic](https://github.com/SuperStormer/c2logic), [UMRnInside/MlogExtended](https://github.com/UMRnInside/MlogExtended) and [Wikipedia: Calling convention](https://en.wikipedia.org/wiki/Calling_convention)
 
