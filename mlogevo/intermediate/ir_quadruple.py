@@ -13,6 +13,7 @@ I1_INSTRUCTIONS = {
     "goto",
     "label",
     "__funcend", "__call", "__return",
+    "__structbegin", "__structend"
 }
 I1O1_INSTRUCTIONS = {
     "set_obj",
@@ -30,6 +31,7 @@ NO_INPUT_INSTRUCTIONS = {
 
 CORE_I1O1_ITEMS = {
     "set", "minus",
+    "read", "write"
 }
 CORE_I2O1_ITEMS = {
     "add", "sub", "mul", "div",
