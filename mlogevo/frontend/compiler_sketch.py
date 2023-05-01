@@ -27,11 +27,12 @@ from .type_util import choose_binaryop_instruction, \
     CORE_COMPARISONS
 from .mlog_object import MlogObjectDefinitionParser, convert_field_name
 from .parent_node_visitor import ParentNodeVisitor
+from .abstract_compiler import AbstractCompiler, FrontendResult
 
 
 # Stateful compiler & ast node visitor
 # TODO: this stateful compiler is a mess, consider breaking it into several components
-class CompilerSketch(ParentNodeVisitor):
+class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
     def __init__(self):
         self.functions = {}
         self.current_function = None
@@ -49,7 +50,7 @@ class CompilerSketch(ParentNodeVisitor):
 
         super().__init__()
 
-    def compile(self, filename: str, use_cpp=True, cpp_args=None):
+    def compile(self, filename: str, use_cpp=True, cpp_args=None) -> FrontendResult:
         if cpp_args is None:
             cpp_args = []
         include_path = get_include_path()
@@ -68,7 +69,7 @@ class CompilerSketch(ParentNodeVisitor):
                     dest=convert_field_name(field)
                 )
             )
-        return referred_builtins+self.instructions, self.functions
+        return FrontendResult({}, referred_builtins+self.instructions, self.functions)
 
     def push(self, instruction) -> None:
         if self.current_function is None:

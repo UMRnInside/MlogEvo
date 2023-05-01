@@ -9,6 +9,7 @@ from .asm_template import mlog_expand_asm_template
 from .basic_block import get_basic_blocks
 from .inline_utils import filter_inlineable_functions, inline_calls
 from ..optimizer import append_optimizers
+from ..frontend.abstract_compiler import FrontendResult
 
 
 def dump_basic_blocks(name, blocks):
@@ -45,9 +46,11 @@ class Backend:
         self.asm_template_handler = None
         self.output_component: AbstractIRConverter = None
 
-    def compile(self, frontend_result, dump_blocks=False) -> str:
+    def compile(self, frontend_result: FrontendResult, dump_blocks=False) -> str:
+        inits = frontend_result.global_instructions
+        all_functions = frontend_result.functions
+
         variable_types: Dict[str, str] = {}
-        inits, all_functions = frontend_result
         read_variable_types(inits, variable_types)
         for function in all_functions.values():
             read_variable_types(function.instructions, variable_types)
