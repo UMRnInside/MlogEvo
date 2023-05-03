@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: "Compile and test MlogEvo on Mlog Architecture"
+name: "Compile and test MlogEvo"
 
 # Controls when the workflow will run
 on:
@@ -23,10 +23,10 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      - name: Setup PyPy 3.9
+      - name: Setup Python 3.9
         uses: actions/setup-python@v4
         with:
-          python-version: 'pypy3.9'
+          python-version: '3.9'
       - name: Install dev dependencies
         run: |
           pypy3.9 -m pip install -r requirements-dev.txt
