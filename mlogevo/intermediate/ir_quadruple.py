@@ -16,13 +16,15 @@ I1_INSTRUCTIONS = {
     "__structbegin", "__structend"
 }
 I1O1_INSTRUCTIONS = {
+    # decl_obj attributes variable_name
+    "decl_obj",
     "set_obj",
     "cvtf64_i32", "cvti32_f64",
     # __funcbegin function_name attribute
     "__funcbegin",
 }
 I2O1_INSTRUCTIONS = {"eq_obj", "ne_obj", }
-O1_INSTRUCTIONS = {"decl_obj", }
+O1_INSTRUCTIONS = { }
 COMPARISONS = {"eq_obj", "ne_obj", }
 NO_INPUT_INSTRUCTIONS = {
     "goto", "label", "__funcbegin", "__funcend",
@@ -30,6 +32,7 @@ NO_INPUT_INSTRUCTIONS = {
 }
 
 CORE_I1O1_ITEMS = {
+    "decl",
     "set", "minus",
     "read", "write"
 }
@@ -38,7 +41,7 @@ CORE_I2O1_ITEMS = {
     "lt", "gt", "lteq", "gteq", "eq", "ne"
 }
 CORE_O1_ITEMS = {
-    "decl",
+
 }
 CORE_COMPARISON_ITEMS = {
     "lt", "lteq", "gteq", "gt", "eq", "ne",

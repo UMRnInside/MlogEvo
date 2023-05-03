@@ -20,10 +20,18 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 # Supported instructions / verdicts
 
 ## Declaration
-* Format: `decl_i32 <var>`
-* Format: `decl_f64 <var>`
-* Format: `decl_obj <var>`
-* Format: `decl_struct <var> <struct_name>`
+* Format: `decl_i32 <attributes> <var>`
+* Format: `decl_f64 <attributes> <var>`
+* Format: `decl_obj <attributes> <var>`
+* Format: `decl_struct <attributes> <var> <struct_name>`
+
+If you have no idea about `attributes`, feel free to write `default` verdict. e.g.: `decl_i32 default x`
+
+Attributes that may be used:
+  * `default`
+  * `argument`
+  * `volatile`
+  * `static`
 
 ## Data transfer
 

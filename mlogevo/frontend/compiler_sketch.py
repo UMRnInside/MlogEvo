@@ -66,6 +66,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
             referred_builtins.append(
                 Quadruple(
                     instruction=choose_decl_instruction(self.mlog_builtins_items[field]),
+                    src1="default",
                     dest=convert_field_name(field)
                 )
             )
@@ -123,7 +124,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
             temp_var_name = self.decorate_variable(temp_var_name)
         decl_inst = choose_decl_instruction(var_type)
         if len(decl_inst) > 0:
-            self.push(Quadruple(decl_inst, dest=temp_var_name))
+            self.push(Quadruple(decl_inst, src1="default", dest=temp_var_name))
         return temp_var_name
 
     def remove_temp_variable(self, decorated_name):
@@ -182,6 +183,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
         # Almost copy-pasted from 
         # https://github.com/SuperStormer/c2logic/blob/master/c2logic/compiler.py
         if func_name in self.functions:
+            # TODO: check function signature
             self.current_function = self.functions[func_name]
         else:
             func_decl = node.decl.type
@@ -192,16 +194,22 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
                           for param_decl in func_decl.args.params]
             specs = [extract_attribute(attr) for attr in node.decl.funcspec] or ["default", ]
             self.current_function = Function(func_name, func_decl.type, params, dict(params), [], specs)
-
+            self.functions[func_name] = self.current_function
         self.function_vtmp_count = 0
-        # self.function_locals = self.current_function.local_vars
-        self.functions[func_name] = self.current_function
-
         ir_attributes = ",".join(self.current_function.attributes)
         self.push(Quadruple("__funcbegin", func_name, "", ir_attributes))
         decl_inst = choose_decl_instruction(self.current_function.result_type)
         if len(decl_inst) > 0:
-            self.push(Quadruple(decl_inst, dest=f"result@{func_name}"))
+            self.push(Quadruple(decl_inst, src1="default", dest=f"result@{func_name}"))
+
+        # TODO: "decl" may have attributes
+        for param_decl in self.current_function.params:
+            param_realname = f"_{param_decl[0]}@{func_name}"
+            param_type = self.extract_actual_typename(param_decl[1])
+            decl_inst = choose_decl_instruction(param_type)
+            if len(decl_inst) > 0:
+                self.push(Quadruple(decl_inst, src1="argument", dest=param_realname))
+
         self.visit(node.body)
         self.push(Quadruple("__funcend", func_name, ""))
 
@@ -219,7 +227,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
             decorated_name = self.decorate_variable(var_name)
             decl_inst = choose_decl_instruction(var_type)
             if decl_inst:
-                self.push(Quadruple(decl_inst, dest=decorated_name))
+                self.push(Quadruple(decl_inst, src1="default", dest=decorated_name))
             # print("Decl", var_name, var_type.type)
             if node.init is None:
                 return
@@ -428,7 +436,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
         self.push(Quadruple("__call", function_name))
         decl_inst = choose_decl_instruction(func.result_type)
         if decl_inst != "":
-            self.push(Quadruple(decl_inst, dest=f"result@{function_name}"))
+            self.push(Quadruple(decl_inst, src1="default", dest=f"result@{function_name}"))
         # Assume a function returns something
         return func.result_type, f"result@{function_name}"
 

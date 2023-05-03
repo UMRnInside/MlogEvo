@@ -27,6 +27,6 @@ def remove_decls(func: Function) -> Function:
         for var in ir.output_vars:
             referred.add(var)
     end = func.instructions[-1]
-    referred_decls = [x for x in decls if x.src1 in referred]
+    referred_decls = [x for x in decls if x.dest in referred or "argument" in x.src1]
     func.instructions = [start, ] + referred_decls + body + [end, ]
     return func

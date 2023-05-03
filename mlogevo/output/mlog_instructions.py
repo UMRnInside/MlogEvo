@@ -223,5 +223,5 @@ def mlog_return(function_name) -> List[str]:
 
 
 @mlog_ir_impl("decl", ("i32", "f64", "obj"))
-def mlog_blackhole(var) -> List[str]:
+def mlog_blackhole(attributes, var_name) -> List[str]:
     return []
