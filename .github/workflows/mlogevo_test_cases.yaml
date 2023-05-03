@@ -29,7 +29,7 @@ jobs:
           python-version: '3.9'
       - name: Install dev dependencies
         run: |
-          pypy3.9 -m pip install -r requirements-dev.txt
+          python3.9 -m pip install -r requirements-dev.txt
       - name: Download MlogEvo-stdlib
         run: |
           git clone --depth 1 https://github.com/UMRnInside/MlogEvo-stdlib
@@ -37,4 +37,4 @@ jobs:
       - name: Compile and run test cases
         run: |
           pwd
-          pypy3.9 -m unittest discover -s arch_mlog_tests
+          python3.9 -m unittest discover -s arch_mlog_tests
