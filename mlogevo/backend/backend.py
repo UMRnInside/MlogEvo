@@ -120,7 +120,8 @@ def make_backend(arch="mlog", target="mlog",
         backend.asm_template_handler = mlog_expand_asm_template
     if target == "mlog":
         backend.output_component = IRtoMlogConverter(
-            strict_32bit="strict-32bit" in machine_dependents
+            strict_32bit="strict-32bit" in machine_dependents,
+            keep_labels="keep-labels" in machine_dependents,
         )
     elif target == "mlogev_ir":
         backend.output_component = IRDumper()
