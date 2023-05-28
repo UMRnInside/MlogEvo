@@ -371,7 +371,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
             return var_typedecl, result_var
         if node.op == "!":
             result_var = self.create_temp_variable(var_typedecl, True)
-            inst, result_typedecl = choose_binaryop_instruction(
+            result_typedecl, inst  = choose_binaryop_instruction(
                 "==", var_typedecl, var_typedecl
             )
             self.push(Quadruple(inst, var_realname, "0", result_var))
