@@ -23,9 +23,11 @@ Special thanks to [Wikibooks/x86 Assembly](https://en.wikibooks.org/wiki/X86_Ass
 * Format: `decl_i32 <attributes> <var>`
 * Format: `decl_f64 <attributes> <var>`
 * Format: `decl_obj <attributes> <var>`
-* Format: `decl_struct <attributes> <var> <struct_name>`
+* Format: `decl_space <attributes> <var> <size>`
 
 If you have no idea about `attributes`, feel free to write `default` verdict. e.g.: `decl_i32 default x`
+
+`decl_space` is for structures and arrays.
 
 Attributes that may be used:
   * `default`
@@ -39,7 +41,6 @@ Attributes that may be used:
 * Format: `set_i32 <src> <dest>`
 * Format: `set_f64 <src> <dest>`
 * Format: `set_obj <src> <dest>`
-* Format: `set_struct <src> <dest>`
 
 Copies the src operand into the dest operand. Note that if `src` operand is a float64 value, it will be rounded _down_ in `dest` operand.
 The `src` operand can be an immediate value or a variable, while `dest` must be a variable.
