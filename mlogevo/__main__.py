@@ -26,6 +26,8 @@ parser.add_argument("-print-basic-blocks", action="store_true",
         help="dump basic blocks")
 parser.add_argument("-skip-preprocess", action="store_false",
         help="do not invoke `cpp` or `gcc -E`")
+parser.add_argument("--preprocessor", choices=("gcc", "tcc", "cpp"), default="gcc",
+        help="Preprocessor to invoke")
 parser.add_argument("-x", type=str, choices=("c", "mlogev_ir"), default="c",
         help="Specify type of input file, \"C\" by default.")
 
@@ -53,11 +55,13 @@ _nameToLevel = {
     'NOTSET': logging.NOTSET,
 }
 
-def use_compiler(frontend, args, cpp_args) -> Tuple:
+
+def use_compiler(frontend, args, cpp, cpp_args) -> Tuple:
     try:
         frontend_result = frontend.compile(
             args.source_file,
             use_cpp=args.skip_preprocess,
+            cpp_path=cpp,
             cpp_args=cpp_args
         )
         return frontend_result
@@ -85,6 +89,8 @@ def main(argv=None):
         return
 
     cpp_args = [f"-DMLOGEV_ARCH={ARCH_ID[args.march]}", ]
+    if args.preprocessor != "cpp":
+        cpp_args.append("-E")
     if args.I:
         cpp_args.extend( ["-I"+path for path in args.I ] )
     if args.D:
@@ -100,7 +106,7 @@ def main(argv=None):
     )
     frontend_result: Tuple = ()
     if args.x == "c":
-        frontend_result = use_compiler(frontend, args, cpp_args)
+        frontend_result = use_compiler(frontend, args, args.preprocessor, cpp_args)
     elif args.x == "mlogev_ir":
         text_parser = TextQuadrupleParser()
         with open(args.source_file, "r") as f:

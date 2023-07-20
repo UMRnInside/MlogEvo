@@ -12,5 +12,5 @@ class FrontendResult:
 
 
 class AbstractCompiler:
-    def compile(self, filename: str, use_cpp=True, cpp_args=None) -> FrontendResult:
+    def compile(self, filename: str, use_cpp=True, cpp_path="cpp", cpp_args=None) -> FrontendResult:
         pass

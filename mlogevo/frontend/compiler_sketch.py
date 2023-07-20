@@ -50,7 +50,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
 
         super().__init__()
 
-    def compile(self, filename: str, use_cpp=True, cpp_args=None) -> FrontendResult:
+    def compile(self, filename: str, use_cpp=True, cpp_path="cpp", cpp_args=None) -> FrontendResult:
         if cpp_args is None:
             cpp_args = []
         include_path = get_include_path()
@@ -58,6 +58,7 @@ class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
             cpp_args = cpp_args + ["-I", include_path]
         ast = parse_file(filename,
                          use_cpp=use_cpp,
+                         cpp_path=cpp_path,
                          cpp_args=cpp_args,
                          parser=GnuCParser())
         self.visit(ast)
