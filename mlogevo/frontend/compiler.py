@@ -1,45 +1,94 @@
-from dataclasses import dataclass, field
-from typing import List, Dict, Set
-import sysconfig
+from typing import List, Dict, Set, NamedTuple, Any
 import os
 # for string constants
+from ast import literal_eval
+
+from pycparser.c_ast import \
+    Compound, Constant, DeclList, Enum, FileAST, \
+    FuncDecl, Struct, TypeDecl, Typename, PtrDecl, \
+    Typedef, StructRef
+
+from pycparser.c_ast import NodeVisitor
+from pycparser import parse_file
+
+from pycparserext_gnuc.ext_c_parser import GnuCParser, \
+    FuncDeclExt, Asm
 
 from ..intermediate import Quadruple
-from .compiler_sketch import choose_binaryop_instruction
-from .components.branch_support import BranchSupport
+from ..intermediate.function import Function, LrValue
+from .compilation_error import CompilationError
+from .type_util import choose_binaryop_instruction, \
+    choose_unaryop_instruction, \
+    choose_set_instruction, choose_decl_instruction, \
+    extract_attribute, \
+    extract_typename, DUMMY_INT_TYPEDECL, \
+    CORE_COMPARISONS
+from .mlog_object import MlogObjectDefinitionParser, convert_field_name
+from .abstract_compiler import AbstractCompiler, FrontendResult
 
 
-# Stateful compiler & ast node visitor
-class Compiler(BranchSupport):
+# Stateful AST node visitor & compiler
+class Compiler(NodeVisitor, AbstractCompiler):
     def __init__(self):
+        self.functions: Dict[str, Function] = {}
+        self.current_function: Function = None
+        self.globals: Dict[str, LrValue] = {}
+        # Temp variables
+        self.function_vtmp_count: int = 0
+        self.vtmp_count: int = 0
+        self.instructions: list = []
+
+        # For builtin items
+        self.mlog_object_items: Dict[str, str] = {}
+        self.mlog_builtins_items: Dict[str, str] = {}
+        self.referred_builtins_items: Set[str] = set()
+
+        self.typedefs = {}
         super().__init__()
 
-    def visit_BinaryOp(self, node):
-        left_typedecl, left_var = self.visit(node.left)
-        # Short-circuit environment created in visit_Assignment
-        if_true, if_false = "", ""
-        if self.inside_branch_condition:
-            if_true = self.tag_if_true
-            if_false = self.tag_if_false
-        # Short-circuit evaluation
-        if node.op in ("&&", "||"):
-            self.short_circuit_triggered = True
-            if node.op == "&&":
-                self.push(Quadruple("ifnot", left_var, "false", if_false, relop="ne_i32"))
-            else:
-                self.push(Quadruple("if", left_var, "false", if_true, relop="ne_i32"))
+    # --- BEGIN INTERNAL UTILITIES ---
+    def push(self, instruction) -> None:
+        if self.current_function is None:
+            self.instructions.append(instruction)
+            return
+        self.current_function.instructions.append(instruction)
 
-        right_typedecl, right_var = self.visit(node.right)
-        if node.op in ("&&", "||"):
-            # TODO: is pythonic boolean right?
-            return right_typedecl, right_var
-        # END Short-circuit evaluation
+    def peek(self) -> Quadruple:
+        if self.current_function is None:
+            return self.instructions[-1]
+        return self.current_function.instructions[-1]
 
-        # TODO: implicit conversion?
-        # Assume mlog arch does NOT require explicit int->double conversion
-        result_typedecl, inst = choose_binaryop_instruction(
-            node.op, left_typedecl, right_typedecl
-        )
-        temp_var = self.create_temp_variable(result_typedecl, True)
-        self.push(Quadruple(inst, left_var, right_var, temp_var))
-        return result_typedecl, temp_var
+    # For global variables:
+    # it will NOT decorate them
+    def decorate_variable(self, variable_name):
+        if self.current_function is None:
+            return variable_name
+        if self.current_function.local_vars.get(variable_name, None) is None:
+            # Assume global
+            return variable_name
+        return F"_{variable_name}@{self.current_function.name}"
+
+    def remove_temp_variable(self, decorated_name):
+        if not "__vtmp_" in decorated_name:
+            return
+        if self.current_function is None:
+            self.globals.pop(decorated_name, None)
+            return
+        first_at = decorated_name.find('@')
+        raw_name = decorated_name[1:first_at]
+        self.current_function.local_vars.pop(raw_name, None)
+
+    def get_variable(self, var_name, coord) -> LrValue:
+        result = None
+        if self.current_function is not None:
+            result = self.current_function.local_vars.get(var_name, None)
+        if result is None:
+            result = self.globals.get(var_name, None)
+        if result is None:
+            # TODO
+            raise CompilationError(
+                reason=f"Variable {var_name} not found (or referred before declaration)",
+                coord = coord
+            )
+        return result
+    # --- END INTERNAL UTILITIES ---

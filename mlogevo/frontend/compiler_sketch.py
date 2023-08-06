@@ -26,13 +26,12 @@ from .type_util import choose_binaryop_instruction, \
     extract_typename, DUMMY_INT_TYPEDECL, \
     CORE_COMPARISONS
 from .mlog_object import MlogObjectDefinitionParser, convert_field_name
-from .parent_node_visitor import ParentNodeVisitor
 from .abstract_compiler import AbstractCompiler, FrontendResult
 
 
 # Stateful compiler & ast node visitor
 # TODO: this stateful compiler is a mess, consider breaking it into several components
-class CompilerSketch(ParentNodeVisitor, AbstractCompiler):
+class CompilerSketch(NodeVisitor, AbstractCompiler):
     def __init__(self):
         self.functions = {}
         self.current_function = None

@@ -4,6 +4,7 @@ from typing import Dict, List
 from ..intermediate.function import Function
 from ..intermediate import Quadruple
 
+
 @dataclass
 class FrontendResult:
     structures: Dict
