@@ -162,8 +162,8 @@ def eliminate_local_common_subexpression(
         else:
             aliases[new_dest] = node.provides[0]
         # Uncomment these if we do `lazy fulfill` on variable aliases
-        # old_provider = find_node_for_variable(old_dest, variable_provider, dag_nodes, aliases)[0]
-        # old_provider.rdepends.append(node)
+        old_provider = find_node_for_variable(old_dest, variable_provider, dag_nodes, aliases)[0]
+        old_provider.rdepends.append(node)
         variable_version[ir.dest] = new_dest
         if ir is ending:
             ending_node = node
@@ -191,7 +191,9 @@ def eliminate_local_common_subexpression(
     q = deque()
     lcse_logger.debug(f"active variables: { {k: v.version for (k, v) in variable_version.items()} }")
     lcse_logger.debug(f"active nodes: {active_node_ids}")
-    lcse_logger.debug(f"ending node: {ending_node}")
+    # Compiler hangs here sometimes
+    # lcse_logger.debug(f"ending node: {ending_node}")
+
     # BEGIN topological sort
     for node in dag_nodes:
         lcse_logger.debug("\n"+node.prettify())
